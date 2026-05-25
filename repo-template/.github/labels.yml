@@ -1,0 +1,46 @@
+# Labels for the agent fleet
+
+# Workflow
+- name: agent-ready
+  description: Available for an agent to claim
+  color: '0E8A16'
+
+- name: agent:blocked
+  description: Agent is waiting on human input
+  color: 'D93F0B'
+
+- name: agent:do-not-pick
+  description: Humans only — agents must skip this
+  color: 'B60205'
+
+- name: agent:needs-revision
+  description: PR rejected, agent should re-pickup
+  color: 'FBCA04'
+
+# Triage workflow — for vague/unstructured issues
+- name: triage:proposed
+  description: Agent has posted a triage proposal; awaiting human approval
+  color: 'FBCA04'
+
+- name: agent:approved
+  description: Human approved the triage proposal; agent should execute
+  color: '2EA44F'
+
+- name: epic
+  description: Parent issue split into child issues by an agent
+  color: '5319E7'
+
+# Model routing — which model should pick up the issue
+- name: model:haiku
+  description: Trivial fix — Haiku is sufficient
+  color: 'C2E0C6'
+
+- name: model:sonnet
+  description: Standard task — Sonnet (default)
+  color: '5319E7'
+
+- name: model:opus
+  description: Hard problem — needs Opus
+  color: '0052CC'
+
+# Per-agent claim labels are created automatically on first boot.

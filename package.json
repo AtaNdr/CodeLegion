@@ -1,0 +1,29 @@
+{
+  "name": "codelegion",
+  "version": "2.0.0",
+  "description": "Self-bootstrapping fleet of Claude Code agents that pick up GitHub issues and open PRs. Deploy as an Azure Web App; it provisions everything else.",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AtaNdr/CodeLegion.git"
+  },
+  "license": "MIT",
+  "author": "Ata Naderi",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.30.0",
+    "@azure/arm-appservice": "^15.0.0",
+    "@azure/arm-compute": "^22.0.0",
+    "@azure/arm-network": "^33.0.0",
+    "@azure/arm-resources": "^6.0.0",
+    "@azure/identity": "^4.0.0",
+    "express": "^4.19.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

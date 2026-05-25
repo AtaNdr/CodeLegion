@@ -1,0 +1,30 @@
+{
+  "fleet": {
+    "maxAgentsTotal": 6,
+    "maxAgentsPerModel": {
+      "haiku": 2,
+      "sonnet": 3,
+      "opus": 1
+    },
+    "idleTimeoutSeconds": 600,
+    "defaultModel": "sonnet"
+  },
+  "retirement": {
+    "enabled": true,
+    "staleAfterDays": 30,
+    "checkIntervalHours": 6
+  },
+  "alerts": {
+    "f1QuotaWarnPercent": 80
+  },
+  "vmSize": {
+    "haiku": "Standard_D2as_v4",
+    "sonnet": "Standard_D2as_v4",
+    "opus": "Standard_D4as_v4"
+  },
+  "budget": {
+    "issueTimeBudget": "90m",
+    "issueTokenBudget": 500000,
+    "maxTurnsPerIssue": 100
+  }
+}

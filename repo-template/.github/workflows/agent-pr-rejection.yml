@@ -1,0 +1,41 @@
+name: Reopen for agent on PR rejection
+
+on:
+  pull_request_review:
+    types: [submitted]
+
+jobs:
+  reopen:
+    if: github.event.review.state == 'changes_requested'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Find linked issue and re-label
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_NUM: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          
+          # Extract "Closes #N" from PR body (case insensitive)
+          ISSUE_NUM=$(echo "$PR_BODY" | grep -ioE 'closes #[0-9]+' | head -1 | grep -oE '[0-9]+' || true)
+          
+          if [[ -z "$ISSUE_NUM" ]]; then
+            echo "No linked issue found in PR body. Skipping."
+            exit 0
+          fi
+          
+          echo "Re-labeling issue #$ISSUE_NUM as agent-ready"
+          
+          # Remove any agent:<name> claim label, add agent-ready and agent:needs-revision
+          LABELS=$(gh issue view "$ISSUE_NUM" --json labels -q '.labels[].name')
+          for L in $LABELS; do
+            if [[ "$L" == agent:* && "$L" != "agent:blocked" && "$L" != "agent:do-not-pick" && "$L" != "agent:needs-revision" ]]; then
+              gh issue edit "$ISSUE_NUM" --remove-label "$L"
+            fi
+          done
+          
+          gh issue edit "$ISSUE_NUM" --add-label "agent-ready" --add-label "agent:needs-revision"
+          
+          gh issue comment "$ISSUE_NUM" --body "PR #$PR_NUM had changes requested. Re-queued for an agent to address review feedback."

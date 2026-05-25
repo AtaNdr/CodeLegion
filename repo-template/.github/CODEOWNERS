@@ -1,0 +1,55 @@
+# CODEOWNERS — required reviewers for protected paths
+#
+# This file enforces that agents (and humans) cannot merge PRs touching critical
+# paths without explicit review by the listed owners.
+#
+# `DO_NOT_TOUCH.md` is the agent's honor-system rule. CODEOWNERS is the
+# technical enforcement: GitHub branch protection requires CODEOWNERS approval
+# on PRs that touch the matching paths, regardless of who opened the PR.
+#
+# REPLACE the placeholder owner (@AtaNdr/maintainers) with your actual team
+# or specific usernames before this file is enforced. Until then, GitHub
+# may default to repo admins.
+#
+# Branch protection setup required:
+#   gh api repos/:owner/:repo/branches/main/protection \
+#     --method PUT \
+#     --field required_status_checks=null \
+#     --field enforce_admins=false \
+#     --field required_pull_request_reviews[require_code_owner_reviews]=true \
+#     --field required_pull_request_reviews[required_approving_review_count]=1 \
+#     --field restrictions=null
+
+# CI / GitHub configuration — humans only
+/.github/                @AtaNdr/maintainers
+
+# Infrastructure as code
+/infra/                  @AtaNdr/maintainers
+/terraform/              @AtaNdr/maintainers
+/k8s/                    @AtaNdr/maintainers
+/deploy/                 @AtaNdr/maintainers
+
+# Secrets and environment
+/.env*                   @AtaNdr/maintainers
+**/secrets/              @AtaNdr/maintainers
+
+# Database migrations — irreversible if wrong
+/migrations/             @AtaNdr/maintainers
+/db/migrations/          @AtaNdr/maintainers
+
+# Lockfiles — agents should regenerate, not hand-edit
+/package-lock.json       @AtaNdr/maintainers
+/yarn.lock               @AtaNdr/maintainers
+/pnpm-lock.yaml          @AtaNdr/maintainers
+/Cargo.lock              @AtaNdr/maintainers
+/go.sum                  @AtaNdr/maintainers
+
+# The agent fleet contracts themselves — changes need coordinated review
+/CLAUDE.md               @AtaNdr/maintainers
+/COMMENT_STYLE.md        @AtaNdr/maintainers
+/DESIGN_DEFAULTS.md      @AtaNdr/maintainers
+/DO_NOT_TOUCH.md         @AtaNdr/maintainers
+
+# This file itself
+/CODEOWNERS              @AtaNdr/maintainers
+/.github/CODEOWNERS      @AtaNdr/maintainers

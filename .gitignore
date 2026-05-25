@@ -1,0 +1,21 @@
+# Dependencies
+node_modules/
+
+# Build artifacts
+*.zip
+*.tar.gz
+
+# Environment files
+.env
+.env.local
+*.pem
+
+# Editor
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# Logs (local dev only — App Service persists its own under /home/data/)
+home/
+*.log

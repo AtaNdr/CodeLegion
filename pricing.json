@@ -1,0 +1,30 @@
+{
+  "_comment": "Prices in USD per million tokens. Verify against https://www.anthropic.com/pricing before deploying. Update as needed.",
+  "_lastVerified": "2026-05-24",
+  "models": {
+    "haiku": {
+      "displayName": "Claude Haiku 4.5",
+      "input": 1.00,
+      "output": 5.00,
+      "cacheWrite5m": 1.25,
+      "cacheWrite1h": 2.00,
+      "cacheRead": 0.10
+    },
+    "sonnet": {
+      "displayName": "Claude Sonnet 4.6",
+      "input": 3.00,
+      "output": 15.00,
+      "cacheWrite5m": 3.75,
+      "cacheWrite1h": 6.00,
+      "cacheRead": 0.30
+    },
+    "opus": {
+      "displayName": "Claude Opus 4.7",
+      "input": 5.00,
+      "output": 25.00,
+      "cacheWrite5m": 6.25,
+      "cacheWrite1h": 15.00,
+      "cacheRead": 0.50
+    }
+  }
+}
