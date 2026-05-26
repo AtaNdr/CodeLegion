@@ -143,6 +143,9 @@ export const checks = [
       }
 
       // 2. Installation exists (mints JWT + GET /app/installations/{id}).
+      //    Also force a fresh token first — a cached token from before the
+      //    user re-accepted new permissions would still carry the old scope.
+      clearTokenCache();
       let install;
       try {
         install = await checkInstallation();
@@ -150,7 +153,35 @@ export const checks = [
         return { status: 'red', detail: `App credentials invalid: ${e.message}`, fixable: true };
       }
 
-      // 3. Target repo is in the installation's repo list.
+      // 3. Verify the installation actually grants the permissions CodeLegion
+      //    needs. The user can set R/W in the App's permission tab but if
+      //    they haven't re-accepted on the installation (or, for org installs,
+      //    if the org owner hasn't), the install still has the OLD scope.
+      //    This surfaces that mismatch explicitly.
+      const REQUIRED_PERMS = {
+        contents: 'write',
+        issues: 'write',
+        pull_requests: 'write',
+        administration: 'write',
+      };
+      const perms = install.permissions || {};
+      const missingPerms = [];
+      for (const [name, required] of Object.entries(REQUIRED_PERMS)) {
+        const have = perms[name];
+        if (!have || (required === 'write' && have !== 'write')) {
+          missingPerms.push(`${name}=${have || 'absent'}`);
+        }
+      }
+      if (missingPerms.length) {
+        return {
+          status: 'yellow',
+          detail: `Install grants incomplete perms: ${missingPerms.join(', ')}`,
+          fixable: true,
+          remediation: 'In App settings, set those permissions to Read & write, save, then go to github.com/settings/installations → Configure → Review and accept. For org installs, an org owner must accept.',
+        };
+      }
+
+      // 4. Target repo is in the installation's repo list.
       const owner = process.env.GH_REPO_OWNER;
       const repo = process.env.GH_REPO_NAME;
       try {
@@ -160,7 +191,7 @@ export const checks = [
         if (hit) {
           return {
             status: 'green',
-            detail: `App ${install.app_slug || install.app_id} on ${install.account?.login || '?'} · ${owner}/${repo} accessible (private=${hit.private})`,
+            detail: `App ${install.app_slug || install.app_id} on ${install.account?.login || '?'} · ${owner}/${repo} (private=${hit.private}) · perms: all required granted`,
           };
         }
         const sample = repos.slice(0, 3).map(r => r.full_name).join(', ');

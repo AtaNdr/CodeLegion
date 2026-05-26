@@ -1,0 +1,58 @@
+name: Auto version + release
+
+# On every push to main:
+#   1. Bump the patch version in package.json
+#   2. Commit + tag the bump
+#   3. Push the tag and create a GitHub Release with auto-generated notes
+#
+# Bump commits are recognised by their 'release: vX.Y.Z' prefix and skipped
+# to avoid recursion.
+#
+# Note: we have to do the release inline (rather than rely on release.yml's
+# tag trigger) because tags pushed using the workflow's GITHUB_TOKEN don't
+# trigger downstream workflows. Manual tag pushes (scripts/release.sh) still
+# trigger release.yml normally.
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  bump-and-release:
+    if: "!startsWith(github.event.head_commit.message, 'release:')"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+          ref: main
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Configure git author
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Bump patch + tag + push
+        id: bump
+        run: |
+          new_version=$(npm version patch --no-git-tag-version)
+          echo "new_version=$new_version" >> "$GITHUB_OUTPUT"
+          git add package.json
+          git commit -m "release: $new_version"
+          git tag -a "$new_version" -m "$new_version"
+          git push origin main --follow-tags
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.bump.outputs.new_version }}
+          name: ${{ steps.bump.outputs.new_version }}
+          generate_release_notes: true

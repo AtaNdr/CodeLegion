@@ -143,17 +143,26 @@ CodeLegion uses [SemVer](https://semver.org/) tags. The version comes from `pack
 - **Azure portal:** Web App → Configuration → Application settings → `CODELEGION_VERSION`. The controller publishes this on every boot, only when the value has changed (avoids restart loops).
 - **`GET /api/version`:** returns `{version, commit, buildDate, update: {currentVersion, latestVersion, hasUpdate, latestHtmlUrl}}`. Same data the footer uses.
 
-Releases live at https://github.com/AtaNdr/CodeLegion/releases. Each is auto-generated with release notes by `.github/workflows/release.yml` when a `vN.N.N` tag is pushed.
+Releases live at https://github.com/AtaNdr/CodeLegion/releases.
 
-To cut a release:
+**Every push to `main` automatically bumps the patch version and creates a Release** via `.github/workflows/auto-version.yml`. The workflow:
+1. Bumps `package.json` patch (e.g. 2.0.1 → 2.0.2)
+2. Commits as `release: v2.0.2` (the `release:` prefix prevents the workflow re-firing on its own commit)
+3. Tags and pushes
+4. Creates a GitHub Release with notes auto-generated from commits since the previous tag
+
+Result: a fresh deploy always reports a different version, so you can confirm your latest change is actually running by checking the dashboard footer or App Settings `CODELEGION_VERSION` against the latest tag.
+
+**To cut a minor or major release manually** (auto-bump only does patches):
 
 ```bash
 # From a clean main branch:
-scripts/release.sh patch        # 2.0.1 → 2.0.2 (bug fixes)
 scripts/release.sh minor        # 2.0.x → 2.1.0 (additive changes)
 scripts/release.sh major        # 2.x.x → 3.0.0 (breaking changes)
 git push && git push --tags
 ```
+
+The tag push fires `.github/workflows/release.yml` which also creates a Release.
 
 The push of the tag triggers the Release workflow, which creates a GitHub Release with auto-generated notes from commits since the last release. Within a few minutes any deployed CodeLegion's `/api/version` will report `update.hasUpdate=true` and the footer pill will appear.
 
