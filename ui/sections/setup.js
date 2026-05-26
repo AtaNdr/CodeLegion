@@ -25,8 +25,8 @@ export function renderSetup({ results, summary }) {
     if (c.id === 'anthropic' && status !== 'green') {
       actions.push(`<button onclick="showUploadModal('anthropic')">Upload key</button>`);
     }
-    if (c.id === 'githubApp' && status !== 'green') {
-      actions.push(`<button onclick="showUploadModal('github')">Upload PEM</button>`);
+    if ((c.id === 'githubApp' || c.id === 'repoAccess') && status !== 'green') {
+      actions.push(`<button onclick="showGithubConfigModal()">Configure App</button>`);
     }
 
     return `
@@ -69,6 +69,41 @@ export function renderSetup({ results, summary }) {
     <textarea id="upload-value" required></textarea>
     <div class="row" style="justify-content:flex-end; gap:.5rem; margin-top:.5rem">
       <button type="button" onclick="document.getElementById('upload-modal').close()">Cancel</button>
+      <button type="submit" class="primary">Save</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="github-config-modal" style="max-width: 520px">
+  <form method="dialog" onsubmit="submitGithubConfig(event)">
+    <h2 style="margin-top:0">Configure GitHub App</h2>
+    <p class="muted" style="margin-top:0">All fields required. From your GitHub App's settings page (Developer settings &rarr; GitHub Apps &rarr; your app).</p>
+    <div style="display:grid; gap:.6rem">
+      <div>
+        <label for="gh-app-id" style="display:block; font-size:.85rem; color:var(--muted)">App ID</label>
+        <input id="gh-app-id" name="appId" type="text" required placeholder="e.g. 123456">
+      </div>
+      <div>
+        <label for="gh-installation-id" style="display:block; font-size:.85rem; color:var(--muted)">Installation ID</label>
+        <input id="gh-installation-id" name="installationId" type="text" required placeholder="e.g. 78901234">
+      </div>
+      <div class="row" style="gap:.6rem">
+        <div style="flex:1">
+          <label for="gh-owner" style="display:block; font-size:.85rem; color:var(--muted)">Repo owner</label>
+          <input id="gh-owner" name="owner" type="text" required placeholder="e.g. yourname">
+        </div>
+        <div style="flex:1">
+          <label for="gh-repo" style="display:block; font-size:.85rem; color:var(--muted)">Repo name</label>
+          <input id="gh-repo" name="repo" type="text" required placeholder="e.g. my-project">
+        </div>
+      </div>
+      <div>
+        <label for="gh-pem" style="display:block; font-size:.85rem; color:var(--muted)">Private key (PEM)</label>
+        <textarea id="gh-pem" name="privateKey" required placeholder="-----BEGIN RSA PRIVATE KEY-----&#10;..."></textarea>
+      </div>
+    </div>
+    <div class="row" style="justify-content:flex-end; gap:.5rem; margin-top:.75rem">
+      <button type="button" onclick="document.getElementById('github-config-modal').close()">Cancel</button>
       <button type="submit" class="primary">Save</button>
     </div>
   </form>

@@ -2,7 +2,7 @@
 
 import express from 'express';
 import { fixers, ensureBaseAppSettings } from './fixers.js';
-import { runOne } from './runner.js';
+import { updateState } from '../state.js';
 import { setAppSettings } from '../azure/app-settings.js';
 import { normalizePrivateKey } from '../github/pem.js';
 import { clearTokenCache } from '../github/app.js';
@@ -15,8 +15,21 @@ setupActionsRouter.post('/setup/action/:id', async (req, res) => {
   if (!fixer) return res.status(400).json({ error: `No fixer registered for ${id}` });
   try {
     const result = await fixer();
-    // Re-run the corresponding check to refresh the persisted status.
-    await runOne(id).catch(() => {});
+    // Persist the fixer's own report as the check result. We don't re-query
+    // Azure here because ARM listing endpoints have eventual-consistency lag
+    // (a freshly-created subnet may not appear in list() for a few seconds).
+    // The fixer just did the work — trust it.
+    updateState((s) => {
+      s.checks = s.checks || {};
+      s.checks[id] = {
+        status: result.status || 'green',
+        detail: result.detail || '',
+        fixable: result.fixable ?? true,
+        remediation: result.remediation ?? null,
+        ranAt: new Date().toISOString(),
+        durationMs: 0,
+      };
+    });
     res.json(result);
   } catch (e) {
     res.status(500).json({ error: e.message || String(e) });

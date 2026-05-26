@@ -5,11 +5,10 @@
 //
 // Status values: green | yellow | red | unknown.
 
-import Anthropic from '@anthropic-ai/sdk';
 import { config } from '../config.js';
 import { discoverResourceGroup, discoverNetwork } from '../azure/discovery.js';
 import { checkInstallation, listInstallationRepos } from '../github/install-check.js';
-import { getRepoFile, ALWAYS_OVERWRITE, REQUIRED_LABELS, getBranchProtection } from '../github/repo.js';
+import { getRepoFile, REQUIRED_LABELS, getBranchProtection } from '../github/repo.js';
 import { ghFetch } from '../github/app.js';
 
 export const checks = [
@@ -95,16 +94,28 @@ export const checks = [
           status: 'red',
           detail: 'ANTHROPIC_API_KEY not set in App Settings.',
           fixable: true,
-          remediation: 'Upload via Flow 1 wizard.',
+          remediation: 'Click "Upload key" to provide one.',
         };
       }
+      // Direct fetch to /v1/models — keeps us off any specific SDK version.
       try {
-        const client = new Anthropic({ apiKey: key });
-        const list = await client.models.list({ limit: 1 });
-        const sample = list?.data?.[0]?.id || 'unknown';
+        const resp = await fetch('https://api.anthropic.com/v1/models?limit=1', {
+          headers: {
+            'x-api-key': key,
+            'anthropic-version': '2023-06-01',
+          },
+        });
+        if (resp.status === 401) {
+          return { status: 'red', detail: 'Key rejected (401 Unauthorized).', fixable: true };
+        }
+        if (!resp.ok) {
+          const text = await resp.text().catch(() => '');
+          return { status: 'red', detail: `${resp.status} ${resp.statusText} ${text.slice(0, 120)}`, fixable: true };
+        }
+        const data = await resp.json();
+        const sample = data?.data?.[0]?.id || 'unknown';
         return { status: 'green', detail: `key valid · saw ${sample}` };
       } catch (e) {
-        if (e?.status === 401) return { status: 'red', detail: 'Key rejected (401 Unauthorized).', fixable: true };
         return { status: 'red', detail: e.message || String(e), fixable: true };
       }
     },

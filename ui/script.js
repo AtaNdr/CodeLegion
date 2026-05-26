@@ -40,7 +40,6 @@ async function fixCheck(id) {
 
 const UPLOAD_CONFIGS = {
   anthropic: { title: 'Upload Anthropic API key', label: 'sk-ant-... key', endpoint: '/setup/upload-anthropic-key', key: 'apiKey' },
-  github:    { title: 'Upload GitHub App private key (PEM)', label: 'Paste the contents of your .pem file', endpoint: '/setup/upload-gh-key', key: 'privateKey' },
 };
 
 function showUploadModal(kind) {
@@ -67,6 +66,34 @@ async function submitUpload(ev) {
     location.reload();
   } catch (e) {
     alert('Upload failed: ' + e.message);
+  }
+}
+
+function showGithubConfigModal() {
+  const modal = document.getElementById('github-config-modal');
+  if (modal) modal.showModal();
+}
+
+async function submitGithubConfig(ev) {
+  ev.preventDefault();
+  const form = ev.target;
+  const data = Object.fromEntries(new FormData(form).entries());
+  const submitBtn = form.querySelector('button[type=submit]');
+  if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Saving…'; }
+  try {
+    // Order matters: config first (sets IDs), then key (clears token cache).
+    await postJson('/setup/upload-gh-config', {
+      appId: data.appId,
+      installationId: data.installationId,
+      owner: data.owner,
+      repo: data.repo,
+    });
+    await postJson('/setup/upload-gh-key', { privateKey: data.privateKey });
+    document.getElementById('github-config-modal').close();
+    location.reload();
+  } catch (e) {
+    alert('Save failed: ' + e.message);
+    if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Save'; }
   }
 }
 
