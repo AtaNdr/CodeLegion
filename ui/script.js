@@ -244,4 +244,25 @@ setInterval(() => {
   if (document.querySelector('dialog[open]')) return;
   location.reload();
 }, 30000);
+
+// Lazy-fetch version + update-available pill, populate the footer line.
+(async function loadVersionInfo() {
+  const el = document.getElementById('version-line');
+  if (!el) return;
+  try {
+    const r = await fetch('/api/version');
+    if (!r.ok) return;
+    const v = await r.json();
+    let html = 'v' + (v.version || '?');
+    if (v.commit) html += ' · ' + v.commit.slice(0, 7);
+    if (v.update?.hasUpdate && v.update.latestVersion) {
+      const href = v.update.latestHtmlUrl || '#';
+      html += ' · <a href="' + href + '" target="_blank" rel="noopener"><span class="pill pill-yellow">Update available: ' + v.update.latestVersion + '</span></a>';
+      html += ' <button class="primary" style="margin-left:.5rem; padding:.15rem .6rem; font-size:.8rem" onclick="doSelfUpdate()">Update now</button>';
+    } else if (v.update?.latestVersion) {
+      html += ' · <span class="muted">latest: ' + v.update.latestVersion + '</span>';
+    }
+    el.innerHTML = html;
+  } catch {}
+})();
 `;

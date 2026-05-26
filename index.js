@@ -1,4 +1,4 @@
-// agent-fleet v2 — controller entrypoint.
+// CodeLegion — controller entrypoint.
 
 import express from 'express';
 import path from 'path';
@@ -16,6 +16,8 @@ import { getResults, summarize } from './flow1/runner.js';
 import { fleetSnapshot } from './flow2/vmlist.js';
 import { readRecent, todayMonthTotals } from './flow2/cost.js';
 import { startRetirementSweep } from './flow2/retirement.js';
+import { getAppSetting, setAppSettings } from './azure/app-settings.js';
+import { getUpdateInfo } from './azure/self-update.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -34,6 +36,17 @@ app.use('/scripts', express.static(path.join(__dirname, 'scripts-static'), {
 
 // ---- API ---------------------------------------------------------
 app.get('/health', (_req, res) => res.json({ ok: true, version: config.version }));
+
+app.get('/api/version', async (_req, res) => {
+  let update = null;
+  try { update = await getUpdateInfo(); } catch {}
+  res.json({
+    version: config.version,
+    commit: config.commit,
+    buildDate: config.buildDate,
+    update,
+  });
+});
 
 app.get('/api/discovery', async (_req, res) => {
   try { res.json(await discoverAll()); }
@@ -99,8 +112,25 @@ if (missing.length > 0) {
 try { updateState((s) => s); }
 catch (e) { console.warn(`[v2] Could not init state dir at ${config.dataDir}:`, e.message); }
 
+// Publish version to App Settings so it's visible in the Azure portal.
+// Idempotent: only writes if changed (writes trigger an App Service restart,
+// so guarding against rewrite avoids a boot loop).
+async function publishVersionToAppSettings() {
+  if (!config.webAppName || !config.resourceGroup || !config.subscriptionId) return;
+  try {
+    const current = await getAppSetting('CODELEGION_VERSION');
+    if (current === config.version) return;
+    await setAppSettings({ CODELEGION_VERSION: config.version });
+    console.log(`[v2] published CODELEGION_VERSION=${config.version} to App Settings`);
+  } catch (e) {
+    console.warn('[v2] could not publish version to App Settings:', e.message);
+  }
+}
+
 app.listen(config.port, () => {
   console.log(`[v2] controller v${config.version} listening on :${config.port}`);
   console.log(`[v2] subscription=${config.subscriptionId || 'UNSET'} rg=${config.resourceGroup || 'UNSET'} webapp=${config.webAppName || 'UNSET'}`);
   try { startRetirementSweep(); } catch (e) { console.warn('[v2] retirement sweep not started:', e.message); }
+  // Fire and forget — don't block boot on App Settings writes.
+  publishVersionToAppSettings().catch(() => {});
 });

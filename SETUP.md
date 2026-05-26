@@ -134,9 +134,31 @@ If something stalls:
 
 ---
 
+## Versions
+
+CodeLegion uses [SemVer](https://semver.org/) tags. The version comes from `package.json` and is surfaced in three places:
+
+- **The dashboard:** version number under the `CodeLegion` title, and in the footer with a "Latest: vX.Y.Z" or "Update available" pill (lazily fetched from GitHub Releases on page load).
+- **Azure portal:** Web App → Configuration → Application settings → `CODELEGION_VERSION`. The controller publishes this on every boot, only when the value has changed (avoids restart loops).
+- **`GET /api/version`:** returns `{version, commit, buildDate, update: {currentVersion, latestVersion, hasUpdate, latestHtmlUrl}}`. Same data the footer uses.
+
+Releases live at https://github.com/AtaNdr/CodeLegion/releases. Each is auto-generated with release notes by `.github/workflows/release.yml` when a `vN.N.N` tag is pushed.
+
+To cut a release:
+
+```bash
+# From a clean main branch:
+scripts/release.sh patch        # 2.0.1 → 2.0.2 (bug fixes)
+scripts/release.sh minor        # 2.0.x → 2.1.0 (additive changes)
+scripts/release.sh major        # 2.x.x → 3.0.0 (breaking changes)
+git push && git push --tags
+```
+
+The push of the tag triggers the Release workflow, which creates a GitHub Release with auto-generated notes from commits since the last release. Within a few minutes any deployed CodeLegion's `/api/version` will report `update.hasUpdate=true` and the footer pill will appear.
+
 ## Updating CodeLegion
 
-Click **Update** in the dashboard footer. If you deployed via external git (3a above), Azure pulls the latest from `main` and restarts. If you deployed via zip, the Update button just restarts — push a new zip yourself first.
+Click **Update now** in the dashboard footer (only shown when a newer release exists), or click **Update** at the bottom of the page anytime. If you deployed via external git (3a above), Azure pulls the latest from `main` and restarts. If you deployed via zip, the Update button just restarts — push a new zip yourself first.
 
 ---
 

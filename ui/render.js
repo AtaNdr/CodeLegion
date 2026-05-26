@@ -28,6 +28,8 @@ export function renderPage({ phase1, discovery, missing, topError, fleet, cost, 
   ${costSection}
   ${discoverySection}
   <footer>
+    <div id="version-line" style="margin-bottom:.25rem">v${escapeHtml(version || config.version)}</div>
+    <a href="/api/version">/api/version</a> ·
     <a href="/api/state">/api/state</a> ·
     <a href="/setup">/setup</a> ·
     <a href="/fleet">/fleet</a> ·
