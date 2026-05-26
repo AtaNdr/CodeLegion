@@ -48,6 +48,30 @@ async function postJson(url, body) {
   return r.json().catch(() => ({}));
 }
 
+// Admin endpoints under /admin/* require X-Admin-Token. The token is rendered
+// into a meta tag on page load (see render.js).
+function adminToken() {
+  const m = document.querySelector('meta[name="codelegion-admin-token"]');
+  return m ? m.getAttribute('content') : '';
+}
+async function adminFetch(url, opts = {}) {
+  const headers = Object.assign({}, opts.headers || {}, { 'X-Admin-Token': adminToken() });
+  return fetch(url, Object.assign({}, opts, { headers }));
+}
+async function postAdmin(url, body) {
+  const r = await adminFetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: body == null ? undefined : JSON.stringify(body),
+  });
+  if (!r.ok) {
+    let msg = r.statusText;
+    try { msg = (await r.json()).error || msg; } catch {}
+    throw new Error(msg);
+  }
+  return r.json().catch(() => ({}));
+}
+
 async function runCheck(id) {
   const btn = document.querySelector(\`[data-run="\${id}"]\`);
   if (btn) { btn.disabled = true; btn.textContent = '…'; }
@@ -181,15 +205,15 @@ async function vmAction(name, action) {
   }
   try {
     if (action === 'delete') {
-      await fetch('/admin/vm/' + encodeURIComponent(name), { method: 'DELETE' });
+      await adminFetch('/admin/vm/' + encodeURIComponent(name), { method: 'DELETE' });
     } else {
-      await postJson('/admin/vm/' + encodeURIComponent(name) + '/' + action);
+      await postAdmin('/admin/vm/' + encodeURIComponent(name) + '/' + action);
     }
   } catch (e) { alert(e.message); }
   finally { location.reload(); }
 }
 async function fleetAction(action) {
-  try { await postJson('/admin/' + action); }
+  try { await postAdmin('/admin/' + action); }
   catch (e) { alert(e.message); }
   finally { location.reload(); }
 }
@@ -216,12 +240,7 @@ async function promptSpin() {
   const model = prompt('Model (haiku/sonnet/opus)?', 'sonnet');
   if (!model) return;
   try {
-    const r = await fetch('/admin/spin', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model }),
-    });
-    if (!r.ok) throw new Error((await r.json()).error || r.statusText);
+    await postAdmin('/admin/spin', { model });
     location.reload();
   } catch (e) { alert(e.message); }
 }
@@ -233,7 +252,7 @@ async function doSelfUpdate() {
     okLabel: 'Update now',
   });
   if (!ok) return;
-  try { await postJson('/admin/self-update'); alert('Update triggered. Refresh in ~60s.'); }
+  try { await postAdmin('/admin/self-update'); alert('Update triggered. Refresh in ~60s.'); }
   catch (e) { alert('Self-update failed: ' + e.message); }
 }
 

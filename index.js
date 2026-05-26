@@ -95,6 +95,7 @@ app.get(['/', '/status'], async (_req, res) => {
     fleet: fleetHtml,
     cost: costHtml,
     version: config.version,
+    adminToken: process.env.REPORT_TOKEN || null,
   }));
 });
 

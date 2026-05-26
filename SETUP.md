@@ -38,6 +38,8 @@ In the Azure portal:
 
 CodeLegion will adopt your existing VNet, NAT gateway, and Public IP — it just adds an `agents` subnet for VMs and attaches the same NAT for their outbound. No duplicates.
 
+> **Dashboard access control (recommended for production):** the `/status` dashboard displays sensitive data (webhook secret, repo names, agent identities). The admin token CodeLegion uses internally is also rendered into the page so the UI can call its own admin endpoints. There's no second password layer — anyone who can load the dashboard URL has full control. For non-trivial deployments, enable App Service **Authentication (Easy Auth)** on the Web App (Web App → Authentication → Add identity provider → Microsoft / Entra). That gates `/status` and `/admin/*` behind your tenant's identity. `/webhook` and `/agent/*` are exempt because GitHub and the agent VMs need to call them with their own signed credentials, not user logins.
+
 ---
 
 ## 3. Deploy this repo

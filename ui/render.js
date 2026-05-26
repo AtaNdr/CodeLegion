@@ -6,17 +6,26 @@ import { renderSetup } from './sections/setup.js';
 import { renderDiscovery } from './sections/discovery.js';
 import { INLINE_SCRIPT } from './script.js';
 
-export function renderPage({ phase1, discovery, missing, topError, fleet, cost, version }) {
+export function renderPage({ phase1, discovery, missing, topError, fleet, cost, version, adminToken }) {
   const setupSection = phase1 ? renderSetup(phase1) : '';
   const discoverySection = discovery ? renderDiscovery({ discovery, missing, topError }) : '';
   const fleetSection = fleet || '';
   const costSection = cost || '';
+  // Admin endpoints (/admin/*) require an X-Admin-Token header that matches
+  // REPORT_TOKEN. We render it into the page so the dashboard JS can attach
+  // it to admin requests. Same trust boundary as the webhook secret already
+  // shown in the Configure App modal — anyone who can load /status can see
+  // both. Enable App Service Easy Auth to gate /status access if needed.
+  const tokenMeta = adminToken
+    ? `<meta name="codelegion-admin-token" content="${escapeHtml(adminToken)}">`
+    : '';
 
   return `<!doctype html>
 <html lang="en"><head>
   <meta charset="utf-8">
   <title>CodeLegion</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  ${tokenMeta}
   <!-- Auto-refresh handled in JS so we can skip while a modal is open. -->
 
   <style>${STYLES}</style>
