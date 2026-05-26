@@ -25,7 +25,7 @@ export function renderSetup({ results, summary }) {
     if (c.id === 'anthropic' && status !== 'green') {
       actions.push(`<button onclick="showUploadModal('anthropic')">Upload key</button>`);
     }
-    if ((c.id === 'githubApp' || c.id === 'repoAccess') && status !== 'green') {
+    if (c.id === 'githubApp' && status !== 'green') {
       actions.push(`<button onclick="showGithubConfigModal()">Configure App</button>`);
     }
 

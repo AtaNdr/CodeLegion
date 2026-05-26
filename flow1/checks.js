@@ -122,52 +122,53 @@ export const checks = [
   },
   {
     id: 'githubApp',
-    label: 'GitHub App installed',
+    label: 'GitHub App + repo access',
     category: 'github',
     fixable: true,
     async run() {
+      // 1. All five App Settings must be present.
       const missing = [];
       if (!process.env.GH_APP_ID) missing.push('GH_APP_ID');
       if (!process.env.GH_INSTALLATION_ID) missing.push('GH_INSTALLATION_ID');
       if (!process.env.GH_APP_PRIVATE_KEY) missing.push('GH_APP_PRIVATE_KEY');
+      if (!process.env.GH_REPO_OWNER) missing.push('GH_REPO_OWNER');
+      if (!process.env.GH_REPO_NAME) missing.push('GH_REPO_NAME');
       if (missing.length) {
         return {
           status: 'red',
           detail: `App Settings missing: ${missing.join(', ')}`,
           fixable: true,
-          remediation: 'Upload private key + IDs via Flow 1 wizard.',
+          remediation: 'Click "Configure App" to provide them.',
         };
       }
+
+      // 2. Installation exists (mints JWT + GET /app/installations/{id}).
+      let install;
       try {
-        const install = await checkInstallation();
-        return { status: 'green', detail: `App ${install.app_slug || install.app_id} installed on ${install.account?.login || '?'}` };
+        install = await checkInstallation();
       } catch (e) {
-        return { status: 'red', detail: e.message };
+        return { status: 'red', detail: `App credentials invalid: ${e.message}`, fixable: true };
       }
-    },
-  },
-  {
-    id: 'repoAccess',
-    label: 'Repo accessible',
-    category: 'github',
-    fixable: true,
-    async run() {
+
+      // 3. Target repo is in the installation's repo list.
       const owner = process.env.GH_REPO_OWNER;
       const repo = process.env.GH_REPO_NAME;
-      if (!owner || !repo) {
-        return { status: 'red', detail: 'GH_REPO_OWNER / GH_REPO_NAME not set in App Settings.', fixable: true };
-      }
       try {
         const repos = await listInstallationRepos();
         const fullName = `${owner}/${repo}`.toLowerCase();
         const hit = repos.find(r => (r.full_name || '').toLowerCase() === fullName);
-        if (hit) return { status: 'green', detail: `${owner}/${repo} accessible (private=${hit.private})` };
+        if (hit) {
+          return {
+            status: 'green',
+            detail: `App ${install.app_slug || install.app_id} on ${install.account?.login || '?'} · ${owner}/${repo} accessible (private=${hit.private})`,
+          };
+        }
         const sample = repos.slice(0, 3).map(r => r.full_name).join(', ');
         return {
           status: 'red',
-          detail: `${owner}/${repo} not in installation (${repos.length} repos available${sample ? ': ' + sample : ''})`,
+          detail: `${owner}/${repo} not in installation (${repos.length} repo${repos.length === 1 ? '' : 's'} available${sample ? ': ' + sample : ''})`,
           fixable: true,
-          remediation: 'Install the GitHub App on this repo or grant it access.',
+          remediation: 'Install the GitHub App on this repo, or fix the owner/repo via "Configure App".',
         };
       } catch (e) {
         return { status: 'red', detail: e.message };
