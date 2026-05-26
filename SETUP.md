@@ -20,7 +20,7 @@ In the Azure portal:
 
 1. Create a new resource group, e.g. `codelegion-rg`, in a region near you.
 2. Create a **Web App** in that resource group:
-   - **Runtime:** Node 20 LTS, Linux
+   - **Runtime:** Node 24 LTS, Linux
    - **Plan:** B1 (~$13/mo). F1 free also works but the daily 60-CPU-minute limit will hit you during initial setup.
 3. After it's created, go to the Web App's **Identity** blade → System assigned → toggle **On**. This gives the Web App a managed identity.
 4. Go to your resource group's **Access control (IAM)** → Add role assignment → **Contributor** → "Managed identity" → select the Web App's identity. Contributor on the RG is what lets it provision its own networking and manage VMs.

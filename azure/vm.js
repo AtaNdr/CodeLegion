@@ -128,7 +128,7 @@ write_files:
     content: |
 ${env.split('\n').map(l => '      ' + l).join('\n')}
 runcmd:
-  - curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+  - curl -fsSL https://deb.nodesource.com/setup_24.x | bash -
   - apt-get install -y nodejs
   - curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
   - chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg
