@@ -110,12 +110,13 @@ The **Configure App** button in the wizard is your launchpad — open it first s
 5. Install the App on your target repo (from the App's Install App tab). After install, note the **Installation ID** from the URL: `.../installations/<ID>`.
 6. Back in the wizard modal (still open from step 1): paste App ID, Installation ID, repo owner, repo name, and the contents of the `.pem` file. Click **Save**.
 
-> **If you forgot Administration R/W (or any other permission):** GitHub does NOT apply newly-added permissions to existing installations automatically. The Fix will keep returning 403 until you re-accept. Two steps:
+> **If a permission Fix keeps returning 403:** GitHub does NOT apply newly-added permissions to existing installations automatically. Three things to check, in order:
 >
-> 1. App settings → Permissions & events → set the missing permission → Save changes.
-> 2. Go to **https://github.com/settings/installations** (or `https://github.com/organizations/<your-org>/settings/installations` for org installs) → click **Configure** on your App → click the yellow **Review and accept** banner at the top.
+> 1. App settings → Permissions & events → set the missing permission → **Save changes**.
+> 2. Go to **https://github.com/settings/installations** (or `https://github.com/organizations/<your-org>/settings/installations` for org installs) → click **Configure** on your App → click the yellow **Review and accept new permissions** banner at the top.
+> 3. **Org installs only:** if you installed the App on an org but you're not an org owner, the org owner has to be the one who accepts the new permissions. You'll keep getting 403 until they do.
 >
-> Then click Fix again in CodeLegion. The Fix automatically clears the cached installation token, so the next attempt uses a token reflecting the new permissions.
+> Then click Fix or Run again in CodeLegion. Both the check and the fix clear the cached installation token automatically, so the next attempt uses a token reflecting the new scope (no need to wait for the 45-minute cache TTL).
 
 ---
 

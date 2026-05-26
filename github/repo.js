@@ -226,7 +226,7 @@ export async function setBranchProtection(branch = 'main') {
     body: JSON.stringify(body),
   });
   if (resp.status === 403) {
-    const err = new Error('GitHub App is missing the "Administration: Read & write" repository permission. In github.com → your App settings → Permissions, set Administration to R/W, save, then accept the new permissions on the installation (the App will email you a link, or check Settings → Applications → Installed GitHub Apps → your App → Configure).');
+    const err = new Error(adminPermError());
     err.code = 'GH_APP_MISSING_ADMIN';
     throw err;
   }
@@ -237,13 +237,20 @@ export async function setBranchProtection(branch = 'main') {
   return resp.json();
 }
 
+function adminPermError() {
+  return 'GitHub App is missing the "Administration: Read & write" permission on this installation. Three things to check:\n' +
+    '1. App settings → Permissions & events → Administration set to Read & write → Save changes.\n' +
+    '2. github.com/settings/installations (or .../organizations/<org>/settings/installations) → Configure your App → click the yellow "Review and accept" banner at the top.\n' +
+    '3. If installed on an organization, an org owner must approve the new permissions — not just you. They\'ll see the same banner.';
+}
+
 export async function getBranchProtection(branch = 'main') {
   const o = owner();
   const r = repo();
   const resp = await ghFetch(`/repos/${o}/${r}/branches/${branch}/protection`);
   if (resp.status === 404) return null;
   if (resp.status === 403) {
-    const err = new Error('GitHub App is missing the "Administration" repository permission. Set it to Read & write in the App settings, save, then accept the new permissions on the installation.');
+    const err = new Error(adminPermError());
     err.code = 'GH_APP_MISSING_ADMIN';
     throw err;
   }

@@ -9,7 +9,7 @@ import { config } from '../config.js';
 import { discoverResourceGroup, discoverNetwork } from '../azure/discovery.js';
 import { checkInstallation, listInstallationRepos } from '../github/install-check.js';
 import { getRepoFile, REQUIRED_LABELS, getBranchProtection } from '../github/repo.js';
-import { ghFetch } from '../github/app.js';
+import { ghFetch, clearTokenCache } from '../github/app.js';
 
 export const checks = [
   {
@@ -226,6 +226,10 @@ export const checks = [
     category: 'github',
     fixable: true,
     async run() {
+      // Force a fresh installation token. If the user just re-accepted new
+      // App permissions on the installation, our cached token (45-min TTL)
+      // would still carry the old scope and the GET would 403.
+      clearTokenCache();
       try {
         const prot = await getBranchProtection('main');
         if (!prot) return { status: 'yellow', detail: 'No branch protection on main.', fixable: true };
