@@ -2,35 +2,43 @@
 
 import express from 'express';
 import { fixers, ensureBaseAppSettings } from './fixers.js';
-import { updateState } from '../state.js';
+import { runOne } from './runner.js';
 import { setAppSettings } from '../azure/app-settings.js';
 import { normalizePrivateKey } from '../github/pem.js';
 import { clearTokenCache } from '../github/app.js';
 
 export const setupActionsRouter = express.Router();
 
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// Re-run a check up to N times, with delays in between, stopping early on
+// green. Handles ARM list eventual-consistency: a freshly-created resource
+// may not appear in list() for a few seconds.
+async function reverifyWithRetries(id, delays = [1500, 3000, 5000]) {
+  let last = null;
+  for (let i = 0; i < delays.length; i++) {
+    await sleep(delays[i]);
+    try {
+      last = await runOne(id);
+      if (last?.status === 'green') return last;
+    } catch (e) {
+      last = { status: 'red', detail: e.message || String(e), ranAt: new Date().toISOString() };
+    }
+  }
+  return last;
+}
+
 setupActionsRouter.post('/setup/action/:id', async (req, res) => {
   const id = req.params.id;
   const fixer = fixers[id];
   if (!fixer) return res.status(400).json({ error: `No fixer registered for ${id}` });
   try {
-    const result = await fixer();
-    // Persist the fixer's own report as the check result. We don't re-query
-    // Azure here because ARM listing endpoints have eventual-consistency lag
-    // (a freshly-created subnet may not appear in list() for a few seconds).
-    // The fixer just did the work — trust it.
-    updateState((s) => {
-      s.checks = s.checks || {};
-      s.checks[id] = {
-        status: result.status || 'green',
-        detail: result.detail || '',
-        fixable: result.fixable ?? true,
-        remediation: result.remediation ?? null,
-        ranAt: new Date().toISOString(),
-        durationMs: 0,
-      };
-    });
-    res.json(result);
+    const fixResult = await fixer();
+    // Auto re-verify with retries. runOne() persists each result, so the
+    // last attempt overwrites the state — the UI will reflect whatever the
+    // re-check actually found.
+    const verified = await reverifyWithRetries(id);
+    res.json({ fix: fixResult, check: verified });
   } catch (e) {
     res.status(500).json({ error: e.message || String(e) });
   }
