@@ -6,6 +6,7 @@ import { config } from '../config.js';
 import { provisionNetwork, resourceNames } from '../azure/provision.js';
 import { setAppSettings } from '../azure/app-settings.js';
 import { injectFiles, syncLabels, setBranchProtection } from '../github/repo.js';
+import { clearTokenCache } from '../github/app.js';
 
 const generateSecret = () => crypto.randomBytes(32).toString('hex');
 
@@ -65,12 +66,15 @@ export const fixers = {
   },
 
   async branchProtection() {
+    // Force a fresh installation token. If the user just updated GH App
+    // permissions and accepted them on the installation, the cached token
+    // would still carry the old perms (cache TTL ~45min).
+    clearTokenCache();
     try {
       await setBranchProtection('main');
       return { status: 'green', detail: 'main protected (1 review + CODEOWNERS)' };
     } catch (e) {
       if (e.code === 'GH_APP_MISSING_ADMIN') {
-        // Don't block the whole setup over a permission issue with a nice-to-have.
         return {
           status: 'yellow',
           detail: 'Could not set branch protection automatically.',

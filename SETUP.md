@@ -110,7 +110,12 @@ The **Configure App** button in the wizard is your launchpad — open it first s
 5. Install the App on your target repo (from the App's Install App tab). After install, note the **Installation ID** from the URL: `.../installations/<ID>`.
 6. Back in the wizard modal (still open from step 1): paste App ID, Installation ID, repo owner, repo name, and the contents of the `.pem` file. Click **Save**.
 
-> **If you forgot Administration R/W:** GitHub doesn't apply new permissions retroactively — you have to accept them on the installation. After fixing the permission in the App settings → Permissions tab and saving, go to **GitHub Settings → Applications → Installed GitHub Apps → your App → Configure** and accept the new permission request at the top of the page. The branch-protection Fix will work after that.
+> **If you forgot Administration R/W (or any other permission):** GitHub does NOT apply newly-added permissions to existing installations automatically. The Fix will keep returning 403 until you re-accept. Two steps:
+>
+> 1. App settings → Permissions & events → set the missing permission → Save changes.
+> 2. Go to **https://github.com/settings/installations** (or `https://github.com/organizations/<your-org>/settings/installations` for org installs) → click **Configure** on your App → click the yellow **Review and accept** banner at the top.
+>
+> Then click Fix again in CodeLegion. The Fix automatically clears the cached installation token, so the next attempt uses a token reflecting the new permissions.
 
 ---
 
