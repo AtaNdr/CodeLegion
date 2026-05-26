@@ -225,14 +225,23 @@ export async function setBranchProtection(branch = 'main') {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   });
-  if (resp.status === 403) {
-    const err = new Error(adminPermError());
-    err.code = 'GH_APP_MISSING_ADMIN';
-    throw err;
-  }
   if (!resp.ok) {
     const text = await resp.text();
-    throw new Error(`Branch protection PUT failed: ${resp.status} ${text}`);
+    let parsed = null;
+    try { parsed = JSON.parse(text); } catch {}
+    const msg = parsed?.message || text;
+    console.error(`[branch-protection] PUT failed ${resp.status}:`, text);
+    // Only blame the admin-perm gap when GitHub's message indicates it.
+    // Otherwise surface the raw message so the user can see the real cause.
+    if (resp.status === 403 && /resource not accessible by integration/i.test(msg)) {
+      const err = new Error(adminPermError() + `\n\nGitHub raw message: "${msg}"`);
+      err.code = 'GH_APP_MISSING_ADMIN';
+      throw err;
+    }
+    const err = new Error(`Branch protection PUT failed (${resp.status}): ${msg}`);
+    err.raw = text;
+    err.body = body;
+    throw err;
   }
   return resp.json();
 }
@@ -249,11 +258,17 @@ export async function getBranchProtection(branch = 'main') {
   const r = repo();
   const resp = await ghFetch(`/repos/${o}/${r}/branches/${branch}/protection`);
   if (resp.status === 404) return null;
-  if (resp.status === 403) {
-    const err = new Error(adminPermError());
-    err.code = 'GH_APP_MISSING_ADMIN';
-    throw err;
+  if (!resp.ok) {
+    const text = await resp.text();
+    let parsed = null;
+    try { parsed = JSON.parse(text); } catch {}
+    const msg = parsed?.message || text;
+    if (resp.status === 403 && /resource not accessible by integration/i.test(msg)) {
+      const err = new Error(adminPermError() + `\n\nGitHub raw message: "${msg}"`);
+      err.code = 'GH_APP_MISSING_ADMIN';
+      throw err;
+    }
+    throw new Error(`GET branch protection failed (${resp.status}): ${msg}`);
   }
-  if (!resp.ok) throw new Error(`GET branch protection failed: ${resp.status}`);
   return resp.json();
 }
