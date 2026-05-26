@@ -93,7 +93,7 @@ When all rows are green, Flow 1 collapses and Flow 2 (the live fleet dashboard) 
 1. Go to your GitHub settings → Developer settings → GitHub Apps → **New GitHub App**.
 2. Name it (e.g., `codelegion-yourorg`). Homepage URL = your Web App URL.
 3. **Webhook URL:** `https://<your-webapp>.azurewebsites.net/webhook`
-4. **Webhook secret:** the wizard's `Bootstrap` step generates one. Copy it from the Web App's App Settings (`GH_WEBHOOK_SECRET`) and paste it into the GitHub App config.
+4. **Webhook secret:** the wizard's **Configure App** modal displays the URL + secret with copy buttons (it generates one on the fly if it doesn't exist). Paste those into the GitHub App's webhook fields.
 5. **Permissions:**
    - Repository: Contents (R/W), Issues (R/W), Pull requests (R/W), Metadata (R), Workflows (R/W if you want it to manage labels/protection), Administration (R/W for branch protection)
    - Subscribe to events: Issues, Issue comment, Pull request, Pull request review

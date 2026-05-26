@@ -18,6 +18,9 @@ async function ensureBaseAppSettings() {
   if (!process.env.REPORT_TOKEN) patch.REPORT_TOKEN = generateSecret();
   if (!process.env.GH_WEBHOOK_SECRET) patch.GH_WEBHOOK_SECRET = generateSecret();
   await setAppSettings(patch);
+  // Also write to process.env so the current request can read the new values
+  // without waiting for Azure's automatic restart.
+  for (const [k, v] of Object.entries(patch)) process.env[k] = v;
   return patch;
 }
 

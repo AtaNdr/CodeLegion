@@ -74,10 +74,33 @@ export function renderSetup({ results, summary }) {
   </form>
 </dialog>
 
-<dialog id="github-config-modal" style="max-width: 520px">
+<dialog id="github-config-modal" style="max-width: 560px">
   <form method="dialog" onsubmit="submitGithubConfig(event)">
     <h2 style="margin-top:0">Configure GitHub App</h2>
-    <p class="muted" style="margin-top:0">All fields required. From your GitHub App's settings page (Developer settings &rarr; GitHub Apps &rarr; your app).</p>
+
+    <div style="border-left:3px solid var(--info); padding:.5rem .75rem; margin-bottom:1rem; background:color-mix(in srgb, var(--info) 8%, transparent)">
+      <p style="margin:0 0 .5rem 0; font-weight:600">1. Create the App on github.com</p>
+      <p class="muted" style="margin:0 0 .5rem 0">Developer settings → GitHub Apps → New. Use these values:</p>
+      <div style="display:grid; gap:.4rem">
+        <div>
+          <label style="display:block; font-size:.75rem; color:var(--muted); text-transform:uppercase; letter-spacing:.05em">Webhook URL</label>
+          <div class="row" style="gap:.4rem; margin-top:.15rem">
+            <code id="gh-webhook-url" style="flex:1; word-break:break-all; padding:.25rem .5rem">loading…</code>
+            <button type="button" onclick="copyEl('gh-webhook-url', this)">Copy</button>
+          </div>
+        </div>
+        <div>
+          <label style="display:block; font-size:.75rem; color:var(--muted); text-transform:uppercase; letter-spacing:.05em">Webhook secret</label>
+          <div class="row" style="gap:.4rem; margin-top:.15rem">
+            <code id="gh-webhook-secret" style="flex:1; word-break:break-all; padding:.25rem .5rem">loading…</code>
+            <button type="button" onclick="copyEl('gh-webhook-secret', this)">Copy</button>
+          </div>
+        </div>
+        <p class="muted" style="margin:.25rem 0 0 0; font-size:.85rem">Permissions: Contents R/W, Issues R/W, Pull requests R/W, Metadata R, Workflows R/W, Administration R/W. Subscribe to: Issues, Issue comment, Pull request, Pull request review.</p>
+      </div>
+    </div>
+
+    <p style="margin:0 0 .5rem 0; font-weight:600">2. Paste back the App's IDs and private key</p>
     <div style="display:grid; gap:.6rem">
       <div>
         <label for="gh-app-id" style="display:block; font-size:.85rem; color:var(--muted)">App ID</label>

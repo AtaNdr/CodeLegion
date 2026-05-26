@@ -55,6 +55,23 @@ setupActionsRouter.post('/setup/bootstrap', async (_req, res) => {
   }
 });
 
+// Surface the webhook URL + secret the user needs when creating their GitHub
+// App on github.com. Generates the secret if it doesn't exist yet so the user
+// always has something to paste.
+setupActionsRouter.get('/setup/gh-app-prep', async (_req, res) => {
+  try {
+    // Triggers REPORT_TOKEN + GH_WEBHOOK_SECRET + URL settings if any are missing.
+    await ensureBaseAppSettings();
+    const host = process.env.WEBSITE_HOSTNAME || (process.env.CONTROLLER_PUBLIC_URL || '').replace(/^https?:\/\//, '');
+    res.json({
+      webhookUrl: host ? `https://${host}/webhook` : null,
+      webhookSecret: process.env.GH_WEBHOOK_SECRET || null,
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 setupActionsRouter.post('/setup/upload-anthropic-key', async (req, res) => {
   const key = (req.body?.apiKey || '').trim();
   if (!key) return res.status(400).json({ error: 'apiKey required' });

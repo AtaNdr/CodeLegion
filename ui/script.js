@@ -69,9 +69,43 @@ async function submitUpload(ev) {
   }
 }
 
-function showGithubConfigModal() {
+async function showGithubConfigModal() {
   const modal = document.getElementById('github-config-modal');
-  if (modal) modal.showModal();
+  if (!modal) return;
+  const urlEl = document.getElementById('gh-webhook-url');
+  const secretEl = document.getElementById('gh-webhook-secret');
+  if (urlEl) urlEl.textContent = 'loading…';
+  if (secretEl) secretEl.textContent = 'loading…';
+  modal.showModal();
+  try {
+    const r = await fetch('/setup/gh-app-prep');
+    if (r.ok) {
+      const data = await r.json();
+      if (urlEl) urlEl.textContent = data.webhookUrl || '(unknown — set CONTROLLER_PUBLIC_URL)';
+      if (secretEl) secretEl.textContent = data.webhookSecret || '(generation failed)';
+    } else {
+      const msg = '(error ' + r.status + ')';
+      if (urlEl) urlEl.textContent = msg;
+      if (secretEl) secretEl.textContent = msg;
+    }
+  } catch (e) {
+    if (urlEl) urlEl.textContent = '(fetch failed)';
+    if (secretEl) secretEl.textContent = '(fetch failed)';
+  }
+}
+
+async function copyEl(elementId, btn) {
+  const el = document.getElementById(elementId);
+  if (!el) return;
+  const text = el.textContent || '';
+  try {
+    await navigator.clipboard.writeText(text);
+    const original = btn.textContent;
+    btn.textContent = 'Copied';
+    setTimeout(() => { btn.textContent = original; }, 1500);
+  } catch (e) {
+    alert('Copy failed — select and copy manually.');
+  }
 }
 
 async function submitGithubConfig(ev) {
