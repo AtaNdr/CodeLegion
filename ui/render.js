@@ -15,13 +15,13 @@ export function renderPage({ phase1, discovery, missing, topError, fleet, cost, 
   return `<!doctype html>
 <html lang="en"><head>
   <meta charset="utf-8">
-  <title>agent-fleet v2</title>
+  <title>CodeLegion</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta http-equiv="refresh" content="30">
   <style>${STYLES}</style>
 </head><body>
 <main>
-  <h1>agent-fleet <span class="muted">v${escapeHtml(version || config.version)}</span></h1>
+  <h1>CodeLegion <span class="muted">v${escapeHtml(version || config.version)}</span></h1>
   ${setupSection}
   ${fleetSection}
   ${costSection}
