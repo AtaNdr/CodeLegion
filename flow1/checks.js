@@ -12,8 +12,6 @@ import { checkInstallation, listInstallationRepos } from '../github/install-chec
 import { getRepoFile, ALWAYS_OVERWRITE, REQUIRED_LABELS, getBranchProtection } from '../github/repo.js';
 import { ghFetch } from '../github/app.js';
 
-const VNET_PREFIX = 'agentfleet-';
-
 export const checks = [
   {
     id: 'subscription',
@@ -42,7 +40,7 @@ export const checks = [
   },
   {
     id: 'network',
-    label: 'Network (vnet · subnet · NSG · NAT)',
+    label: 'Network (vnet · agents subnet · NSG · NAT)',
     category: 'azure',
     fixable: true,
     async run() {
@@ -50,22 +48,39 @@ export const checks = [
       try { net = await discoverNetwork(); }
       catch (e) { return { status: 'red', detail: e.message, fixable: true }; }
 
-      const vnet = net.vnets.find(v => v.name?.startsWith(VNET_PREFIX)) || net.vnets[0];
-      if (!vnet) return { status: 'red', detail: 'No vnet found. Click Create to provision.', fixable: true };
-
-      const subnet = vnet.subnets?.find(s => s.name === 'agents') || vnet.subnets?.[0];
-      if (!subnet) return { status: 'red', detail: `vnet ${vnet.name} has no subnet.`, fixable: true };
-
-      const hasNsg = !!subnet.nsg;
-      const hasNat = !!subnet.natGateway;
-      if (!hasNsg || !hasNat) {
+      const vnet = net.vnets[0];
+      if (!vnet) {
         return {
-          status: 'yellow',
-          detail: `vnet=${vnet.name} subnet=${subnet.name} NSG=${hasNsg ? 'yes' : 'NO'} NAT=${hasNat ? 'yes' : 'NO'}`,
+          status: 'red',
+          detail: 'No VNet in the resource group. The Web App needs VNet integration + NAT for outbound internet — set it up first, then click Fix to add the agents subnet.',
           fixable: true,
         };
       }
-      return { status: 'green', detail: `vnet=${vnet.name} subnet=${subnet.name} with NSG + NAT` };
+
+      const agentsSubnet = vnet.subnets?.find(s => s.name === 'agents');
+      if (!agentsSubnet) {
+        return {
+          status: 'yellow',
+          detail: `VNet ${vnet.name} present; agents subnet missing. Click Fix to add it.`,
+          fixable: true,
+        };
+      }
+
+      const hasNsg = !!agentsSubnet.nsg;
+      const hasNat = !!agentsSubnet.natGateway;
+      if (!hasNsg || !hasNat) {
+        return {
+          status: 'yellow',
+          detail: `agents subnet on ${vnet.name}: NSG=${hasNsg ? 'yes' : 'NO'} NAT=${hasNat ? 'yes' : 'NO'}`,
+          fixable: true,
+        };
+      }
+
+      const natCount = net.natGateways.length;
+      return {
+        status: 'green',
+        detail: `vnet=${vnet.name} agents subnet ${agentsSubnet.addressPrefix} with NSG + NAT (${natCount} gateway${natCount === 1 ? '' : 's'} in RG)`,
+      };
     },
   },
   {

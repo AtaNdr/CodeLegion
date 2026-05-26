@@ -14,7 +14,7 @@ You'll set billing on that key. The CodeLegion dashboard tracks per-task spend s
 
 ---
 
-## 2. Create the Azure Web App
+## 2. Create the Azure Web App + outbound networking
 
 In the Azure portal:
 
@@ -22,13 +22,21 @@ In the Azure portal:
 2. Create a **Web App** in that resource group:
    - **Runtime:** Node 24 LTS, Linux
    - **Plan:** B1 (~$13/mo). F1 free also works but the daily 60-CPU-minute limit will hit you during initial setup.
-3. After it's created, go to the Web App's **Identity** blade → System assigned → toggle **On**. This gives the Web App a managed identity.
-4. Go to your resource group's **Access control (IAM)** → Add role assignment → **Contributor** → "Managed identity" → select the Web App's identity. Contributor on the RG is what lets it provision its own networking and manage VMs.
-5. Configure → Application settings → add:
+3. **Set up outbound internet for the Web App.** Azure retired default outbound access for new resources, so the Web App can't reach Anthropic / GitHub / ARM without explicit egress. In the portal:
+   - Create a **Virtual network** in the same RG (e.g. `codelegion-vnet`, address space `10.0.0.0/16`). Add two subnets:
+     - `webapp` — `10.0.0.0/24`, delegated to **Microsoft.Web/serverFarms** (required for App Service VNet integration)
+     - Leave room for an `agents` subnet (CodeLegion will add it itself in step 3 — don't create it now)
+   - Create a **Public IP** (Standard SKU, Static, IPv4).
+   - Create a **NAT gateway** in the same region. Associate the Public IP with it. Associate the `webapp` subnet with it.
+   - On the Web App: **Networking → VNet integration** → connect to `codelegion-vnet/webapp`.
+   - Verify outbound: SSH into the Web App console (Kudu → SSH) and run `curl -sI https://api.anthropic.com/v1/models`. Should return 200 or 401, not a timeout.
+4. **Enable managed identity.** Web App → **Identity** → System assigned → toggle **On**.
+5. **Grant RBAC.** Resource group → **Access control (IAM)** → Add role assignment → **Contributor** → "Managed identity" → select the Web App's identity. Contributor on the RG lets it manage VMs, networking, and its own App Settings.
+6. **App Settings.** Configuration → Application settings → add:
    - `AZURE_SUBSCRIPTION_ID` = your subscription ID (from the portal home page)
-6. Configuration → General settings → Startup Command: `node index.js`. Save.
+7. **Startup command.** Configuration → General settings → Startup Command: `node index.js`. Save.
 
-That's all the Azure work. The Web App now boots into a wizard that handles everything else.
+CodeLegion will adopt your existing VNet, NAT gateway, and Public IP — it just adds an `agents` subnet for VMs and attaches the same NAT for their outbound. No duplicates.
 
 ---
 
@@ -70,7 +78,7 @@ Walk top-to-bottom and click **Fix** (or **Upload key**, **Upload PEM**) on each
 |---|---|
 | **Subscription accessible** | Already green if you set `AZURE_SUBSCRIPTION_ID` correctly. |
 | **Resource group** | Auto-detected from the Web App. |
-| **Network** | Click **Fix** → provisions vnet, subnet, NSG, public IP, NAT gateway (~2 min). |
+| **Network** | Click **Fix** → adopts your VNet + NAT + Public IP from step 2, adds the `agents` subnet (and creates an NSG for it) in a free /24 inside the VNet's address space. ~30s. |
 | **Anthropic key valid** | Click **Upload key** → paste your `sk-ant-...`. |
 | **GitHub App installed** | First, create a GitHub App (see below), then click **Upload PEM** + supply IDs. |
 | **Repo accessible** | After installing the App on your target repo, this turns green automatically. |

@@ -24,16 +24,19 @@ async function ensureBaseAppSettings() {
 export const fixers = {
   async network() {
     const result = await provisionNetwork();
-    const n = resourceNames();
     await setAppSettings({
       AZURE_LOCATION: result.location,
-      AZURE_VNET_NAME: n.vnet,
-      AZURE_SUBNET_NAME: 'agents',
-      AZURE_NSG_NAME: n.nsg,
-      AZURE_NAT_NAME: n.nat,
-      AZURE_PIP_NAME: n.pip,
+      AZURE_VNET_NAME: result.vnet.name,
+      AZURE_SUBNET_NAME: result.subnet.name,
+      AZURE_NSG_NAME: result.nsg.name,
+      AZURE_NAT_NAME: result.nat.name,
+      AZURE_PIP_NAME: result.pip.name,
     });
-    return { status: 'green', detail: `provisioned vnet=${n.vnet} subnet=agents nsg=${n.nsg} nat=${n.nat} in ${result.location}` };
+    const verb = result.adopted ? 'adopted existing' : 'created fresh';
+    return {
+      status: 'green',
+      detail: `${verb} vnet=${result.vnet.name} subnet=${result.subnet.name} nsg=${result.nsg.name} nat=${result.nat.name} in ${result.location}`,
+    };
   },
 
   async repoTemplate() {
