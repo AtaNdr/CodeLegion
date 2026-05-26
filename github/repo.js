@@ -225,6 +225,11 @@ export async function setBranchProtection(branch = 'main') {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   });
+  if (resp.status === 403) {
+    const err = new Error('GitHub App is missing the "Administration: Read & write" repository permission. In github.com → your App settings → Permissions, set Administration to R/W, save, then accept the new permissions on the installation (the App will email you a link, or check Settings → Applications → Installed GitHub Apps → your App → Configure).');
+    err.code = 'GH_APP_MISSING_ADMIN';
+    throw err;
+  }
   if (!resp.ok) {
     const text = await resp.text();
     throw new Error(`Branch protection PUT failed: ${resp.status} ${text}`);
@@ -237,6 +242,11 @@ export async function getBranchProtection(branch = 'main') {
   const r = repo();
   const resp = await ghFetch(`/repos/${o}/${r}/branches/${branch}/protection`);
   if (resp.status === 404) return null;
+  if (resp.status === 403) {
+    const err = new Error('GitHub App is missing the "Administration" repository permission. Set it to Read & write in the App settings, save, then accept the new permissions on the installation.');
+    err.code = 'GH_APP_MISSING_ADMIN';
+    throw err;
+  }
   if (!resp.ok) throw new Error(`GET branch protection failed: ${resp.status}`);
   return resp.json();
 }

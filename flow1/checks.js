@@ -234,6 +234,9 @@ export const checks = [
         if (codeOwners && reviews >= 1) return { status: 'green', detail: `${reviews} review(s), CODEOWNERS enforced` };
         return { status: 'yellow', detail: `protection weak: reviews=${reviews} codeowners=${codeOwners}`, fixable: true };
       } catch (e) {
+        if (e.code === 'GH_APP_MISSING_ADMIN') {
+          return { status: 'yellow', detail: 'Cannot read branch protection.', fixable: true, remediation: e.message };
+        }
         if (/Branch not protected/i.test(e.message)) return { status: 'yellow', detail: 'No branch protection.', fixable: true };
         return { status: 'red', detail: e.message };
       }

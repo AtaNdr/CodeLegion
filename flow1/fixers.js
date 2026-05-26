@@ -65,8 +65,21 @@ export const fixers = {
   },
 
   async branchProtection() {
-    await setBranchProtection('main');
-    return { status: 'green', detail: 'main protected (1 review + CODEOWNERS)' };
+    try {
+      await setBranchProtection('main');
+      return { status: 'green', detail: 'main protected (1 review + CODEOWNERS)' };
+    } catch (e) {
+      if (e.code === 'GH_APP_MISSING_ADMIN') {
+        // Don't block the whole setup over a permission issue with a nice-to-have.
+        return {
+          status: 'yellow',
+          detail: 'Could not set branch protection automatically.',
+          fixable: true,
+          remediation: e.message,
+        };
+      }
+      throw e;
+    }
   },
 
   async anthropic() {

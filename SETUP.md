@@ -98,11 +98,19 @@ The **Configure App** button in the wizard is your launchpad — open it first s
    - **Homepage URL:** your Web App URL.
    - **Webhook URL:** paste from the wizard modal.
    - **Webhook secret:** paste from the wizard modal.
-   - **Permissions** — Repository: Contents (R/W), Issues (R/W), Pull requests (R/W), Metadata (R), Workflows (R/W) for label/protection management, Administration (R/W) for branch protection.
+   - **Permissions — Repository:**
+     - Contents: **Read & write**
+     - Issues: **Read & write**
+     - Pull requests: **Read & write**
+     - Metadata: **Read** (auto-selected)
+     - Workflows: **Read & write** (needed for label/protection management)
+     - **Administration: Read & write** ⚠️ required for branch protection — easy to miss
    - **Subscribe to events:** Issues, Issue comment, Pull request, Pull request review.
 4. Create the App. Note the **App ID** shown at the top of the App's settings page. Generate a private key — download the `.pem` file.
 5. Install the App on your target repo (from the App's Install App tab). After install, note the **Installation ID** from the URL: `.../installations/<ID>`.
 6. Back in the wizard modal (still open from step 1): paste App ID, Installation ID, repo owner, repo name, and the contents of the `.pem` file. Click **Save**.
+
+> **If you forgot Administration R/W:** GitHub doesn't apply new permissions retroactively — you have to accept them on the installation. After fixing the permission in the App settings → Permissions tab and saving, go to **GitHub Settings → Applications → Installed GitHub Apps → your App → Configure** and accept the new permission request at the top of the page. The branch-protection Fix will work after that.
 
 ---
 
