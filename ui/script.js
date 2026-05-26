@@ -2,6 +2,38 @@
 // Exported as a string so render.js can splice it into the HTML.
 
 export const INLINE_SCRIPT = `
+// Promise-based confirmation modal (replaces native confirm()).
+// Usage: const ok = await showConfirm({title, body, okLabel, danger});
+let _confirmResolver = null;
+function showConfirm({ title = 'Confirm', body = 'Are you sure?', okLabel = 'Confirm', danger = false } = {}) {
+  return new Promise((resolve) => {
+    const titleEl = document.getElementById('confirm-title');
+    const bodyEl = document.getElementById('confirm-body');
+    const okBtn = document.getElementById('confirm-ok-btn');
+    const dlg = document.getElementById('confirm-modal');
+    if (!dlg) { resolve(window.confirm(body)); return; }  // fallback if modal not present
+    if (titleEl) titleEl.textContent = title;
+    if (bodyEl) bodyEl.textContent = body;
+    if (okBtn) {
+      okBtn.textContent = okLabel;
+      okBtn.className = danger ? 'danger' : 'primary';
+    }
+    _confirmResolver = resolve;
+    dlg.addEventListener('close', _onConfirmClose, { once: true });
+    dlg.showModal();
+  });
+}
+function _onConfirmClose() {
+  if (_confirmResolver) { _confirmResolver(false); _confirmResolver = null; }
+}
+function resolveConfirm(answer) {
+  const dlg = document.getElementById('confirm-modal');
+  const resolver = _confirmResolver;
+  _confirmResolver = null;
+  if (dlg) dlg.close();
+  if (resolver) resolver(answer);
+}
+
 async function postJson(url, body) {
   const r = await fetch(url, {
     method: 'POST',
@@ -30,7 +62,12 @@ async function runAllChecks() {
 }
 
 async function fixCheck(id) {
-  if (!confirm('Run remediation for ' + id + '?')) return;
+  const ok = await showConfirm({
+    title: 'Run remediation',
+    body: 'Apply the Fix for "' + id + '"?',
+    okLabel: 'Run Fix',
+  });
+  if (!ok) return;
   const btn = document.querySelector(\`[data-fix="\${id}"]\`);
   if (btn) { btn.disabled = true; btn.textContent = '…'; }
   try { await postJson('/setup/action/' + encodeURIComponent(id)); }
@@ -133,7 +170,15 @@ async function submitGithubConfig(ev) {
 
 // Fleet (Phase 4+) helpers
 async function vmAction(name, action) {
-  if (action === 'delete' && !confirm('Delete VM ' + name + '? Disk and state are lost.')) return;
+  if (action === 'delete') {
+    const ok = await showConfirm({
+      title: 'Delete VM',
+      body: 'Delete ' + name + '? Disk and state are lost — this cannot be undone.',
+      okLabel: 'Delete',
+      danger: true,
+    });
+    if (!ok) return;
+  }
   try {
     if (action === 'delete') {
       await fetch('/admin/vm/' + encodeURIComponent(name), { method: 'DELETE' });
@@ -182,7 +227,12 @@ async function promptSpin() {
 }
 
 async function doSelfUpdate() {
-  if (!confirm('Pull latest release and restart? The Web App will be unavailable for ~60s.')) return;
+  const ok = await showConfirm({
+    title: 'Self-update',
+    body: 'Pull latest release and restart? The Web App will be unavailable for ~60s.',
+    okLabel: 'Update now',
+  });
+  if (!ok) return;
   try { await postJson('/admin/self-update'); alert('Update triggered. Refresh in ~60s.'); }
   catch (e) { alert('Self-update failed: ' + e.message); }
 }

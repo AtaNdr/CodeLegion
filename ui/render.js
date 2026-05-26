@@ -41,6 +41,15 @@ export function renderPage({ phase1, discovery, missing, topError, fleet, cost, 
       <button onclick="document.getElementById('timeline-modal').close()">Close</button></div>
     <pre id="timeline-body" style="font: .8rem ui-monospace, monospace; max-height: 60vh; overflow:auto; margin-top:.5rem"></pre>
   </dialog>
+
+  <dialog id="confirm-modal" style="max-width: 420px">
+    <h3 id="confirm-title" style="margin-top:0">Confirm</h3>
+    <p id="confirm-body" class="muted" style="margin:.5rem 0 1rem 0">Are you sure?</p>
+    <div class="row" style="justify-content:flex-end; gap:.5rem">
+      <button type="button" onclick="resolveConfirm(false)">Cancel</button>
+      <button type="button" id="confirm-ok-btn" class="primary" onclick="resolveConfirm(true)">Confirm</button>
+    </div>
+  </dialog>
 </main>
 <script>${INLINE_SCRIPT}</script>
 </body></html>`;
