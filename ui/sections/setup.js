@@ -63,7 +63,7 @@ export function renderSetup({ results, summary }) {
 </details>
 
 <dialog id="upload-modal">
-  <form method="dialog" onsubmit="submitUpload(event)">
+  <form onsubmit="submitUpload(event); return false;">
     <h2 id="upload-title">Upload</h2>
     <label id="upload-label">Value</label>
     <textarea id="upload-value" required></textarea>
@@ -75,7 +75,7 @@ export function renderSetup({ results, summary }) {
 </dialog>
 
 <dialog id="github-config-modal" style="max-width: 560px">
-  <form method="dialog" onsubmit="submitGithubConfig(event)">
+  <form onsubmit="submitGithubConfig(event); return false;">
     <h2 style="margin-top:0">Configure GitHub App</h2>
 
     <div style="border-left:3px solid var(--info); padding:.5rem .75rem; margin-bottom:1rem; background:color-mix(in srgb, var(--info) 8%, transparent)">

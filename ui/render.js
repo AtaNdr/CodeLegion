@@ -17,7 +17,8 @@ export function renderPage({ phase1, discovery, missing, topError, fleet, cost, 
   <meta charset="utf-8">
   <title>CodeLegion</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta http-equiv="refresh" content="30">
+  <!-- Auto-refresh handled in JS so we can skip while a modal is open. -->
+
   <style>${STYLES}</style>
 </head><body>
 <main>

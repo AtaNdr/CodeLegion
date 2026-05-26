@@ -186,4 +186,12 @@ async function doSelfUpdate() {
   try { await postJson('/admin/self-update'); alert('Update triggered. Refresh in ~60s.'); }
   catch (e) { alert('Self-update failed: ' + e.message); }
 }
+
+// Auto-refresh every 30s, but skip while any <dialog> is open. Modal flows
+// (Configure App, log/timeline viewer) take longer than 30s; reloading
+// mid-flow would destroy the user's input.
+setInterval(() => {
+  if (document.querySelector('dialog[open]')) return;
+  location.reload();
+}, 30000);
 `;
