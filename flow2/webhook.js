@@ -22,6 +22,31 @@ export function verifySignature(rawBody, signatureHeader) {
   return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
 
+// ---- Webhook dedup ---------------------------------------------------
+// GitHub fires issues.opened AND issues.labeled (one per label) when you
+// open an issue with labels already attached. Without dedup we spin one VM
+// per webhook delivery for the same issue. Track recent (issueNumber,model)
+// pairs in memory and refuse to act if we just acted on the same pair.
+
+const recentSpins = new Map();  // key = `${issueNumber}:${model}` → timestamp
+const DEDUP_WINDOW_MS = 120_000;  // 2 minutes covers a typical VM boot
+
+function dedupKey(issueNumber, model) {
+  return `${issueNumber}:${model}`;
+}
+
+function isDuplicate(issueNumber, model) {
+  const now = Date.now();
+  for (const [k, ts] of recentSpins) {
+    if (now - ts > DEDUP_WINDOW_MS) recentSpins.delete(k);
+  }
+  return recentSpins.has(dedupKey(issueNumber, model));
+}
+
+function markHandled(issueNumber, model) {
+  recentSpins.set(dedupKey(issueNumber, model), Date.now());
+}
+
 export async function handleWebhook({ event, payload }) {
   if (event !== 'issues') return { action: 'ignored', reason: `event=${event}` };
   if (!['labeled', 'opened', 'reopened'].includes(payload.action)) {
@@ -39,6 +64,12 @@ export async function handleWebhook({ event, payload }) {
     return { action: 'error', reason: `unknown model: ${model}` };
   }
 
+  const issueNumber = payload.issue.number;
+  if (isDuplicate(issueNumber, model)) {
+    console.log(`[webhook] dedup: already handled #${issueNumber}/${model} within last ${DEDUP_WINDOW_MS/1000}s`);
+    return { action: 'skipped', reason: 'duplicate within dedup window' };
+  }
+
   const agents = await listAgents();
   const alive = agents.filter(isAlive);
   const aliveByModel = groupByModel(alive);
@@ -46,7 +77,7 @@ export async function handleWebhook({ event, payload }) {
   const totalAlive = alive.length;
   const fleet = cfg().fleet;
 
-  console.log(`[webhook] issue #${payload.issue.number} needs ${model}; alive ${aliveCount}/${fleet.maxAgentsPerModel[model]} (total ${totalAlive}/${fleet.maxAgentsTotal})`);
+  console.log(`[webhook] issue #${issueNumber} needs ${model}; alive ${aliveCount}/${fleet.maxAgentsPerModel[model]} (total ${totalAlive}/${fleet.maxAgentsTotal})`);
 
   if (aliveCount >= fleet.maxAgentsPerModel[model]) {
     return { action: 'skipped', reason: `fleet full for ${model}` };
@@ -56,6 +87,8 @@ export async function handleWebhook({ event, payload }) {
   }
 
   if (aliveCount === 0) {
+    // Mark BEFORE the async spin so a concurrent webhook is rejected.
+    markHandled(issueNumber, model);
     const repoUrl = payload.repository.clone_url;
     const sleeping = agents.filter(a => isWakeable(a) && a.model === model);
     const sameRepo = sleeping.find(a => a.repo === repoUrl);

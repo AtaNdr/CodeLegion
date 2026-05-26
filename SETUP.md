@@ -123,7 +123,7 @@ The **Configure App** button in the wizard is your launchpad — open it first s
 ## Verify it works
 
 1. Open an issue in your target repo using the **Agent Task** template (the wizard injected this).
-2. Make sure it has labels `agent-ready` and `model:sonnet`.
+2. Make sure it has the `agent-ready` label. **`model:sonnet` is the default** — you only need a `model:*` label if you want to route to `haiku` (trivial fixes) or `opus` (hard problems).
 3. Within ~3 minutes a VM spawns in your Azure RG. The Flow 2 dashboard shows it.
 4. The agent claims the issue, posts a plan, codes, opens a PR.
 

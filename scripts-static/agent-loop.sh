@@ -190,12 +190,25 @@ while true; do
   git pull --quiet 2>/dev/null || true
 
   ISSUE_JSON=$(gh issue list --label "agent-ready" --state open --json number,title,body,labels --limit 50 2>/dev/null || echo "[]")
-  ISSUE_NUM=$(echo "$ISSUE_JSON" | jq -r --arg ML "$MODEL_LABEL" '
-    [.[] | select(
-      (.labels | map(.name) | any(test("^agent:") and . != "agent:needs-revision" and . != "agent:blocked" and . != "agent:do-not-pick" and . != "agent:approved")) | not
-    ) | select(
-      .labels | map(.name) | any(. == $ML)
-    )] | sort_by(.number) | .[0].number // empty')
+  # Sonnet (the default model) also claims issues that have NO model:* label
+  # at all — matching the webhook's "default to sonnet" behavior. Haiku and
+  # Opus only claim issues that explicitly request them.
+  if [[ "$MODEL" == "sonnet" ]]; then
+    ISSUE_NUM=$(echo "$ISSUE_JSON" | jq -r --arg ML "$MODEL_LABEL" '
+      [.[] | select(
+        (.labels | map(.name) | any(test("^agent:") and . != "agent:needs-revision" and . != "agent:blocked" and . != "agent:do-not-pick" and . != "agent:approved")) | not
+      ) | select(
+        ((.labels | map(.name) | any(. == $ML))
+         or (.labels | map(.name) | any(test("^model:")) | not))
+      )] | sort_by(.number) | .[0].number // empty')
+  else
+    ISSUE_NUM=$(echo "$ISSUE_JSON" | jq -r --arg ML "$MODEL_LABEL" '
+      [.[] | select(
+        (.labels | map(.name) | any(test("^agent:") and . != "agent:needs-revision" and . != "agent:blocked" and . != "agent:do-not-pick" and . != "agent:approved")) | not
+      ) | select(
+        .labels | map(.name) | any(. == $ML)
+      )] | sort_by(.number) | .[0].number // empty')
+  fi
 
   if [[ -z "$ISSUE_NUM" ]]; then
     sleep "$POLL_INTERVAL"; continue
