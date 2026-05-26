@@ -28,6 +28,18 @@ async function reverifyWithRetries(id, delays = [1500, 3000, 5000]) {
   return last;
 }
 
+// Single check run with a brief initial delay — fast path for things that
+// don't need the ARM eventual-consistency retries (GitHub API + Anthropic
+// API are strongly consistent on writes).
+async function reverifyOnce(id, delayMs = 500) {
+  await sleep(delayMs);
+  try {
+    return await runOne(id);
+  } catch (e) {
+    return { status: 'red', detail: e.message || String(e), ranAt: new Date().toISOString() };
+  }
+}
+
 setupActionsRouter.post('/setup/action/:id', async (req, res) => {
   const id = req.params.id;
   const fixer = fixers[id];
@@ -78,8 +90,9 @@ setupActionsRouter.post('/setup/upload-anthropic-key', async (req, res) => {
   if (!key.startsWith('sk-')) return res.status(400).json({ error: 'key does not look like a Claude API key (expected sk-...)' });
   try {
     await setAppSettings({ ANTHROPIC_API_KEY: key });
-    process.env.ANTHROPIC_API_KEY = key;  // make it available this process before restart
-    res.json({ ok: true, note: 'Settings updated. The Web App will restart automatically.' });
+    process.env.ANTHROPIC_API_KEY = key;
+    const check = await reverifyOnce('anthropic');
+    res.json({ ok: true, check });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -96,7 +109,11 @@ setupActionsRouter.post('/setup/upload-gh-key', async (req, res) => {
     await setAppSettings({ GH_APP_PRIVATE_KEY: normalized });
     process.env.GH_APP_PRIVATE_KEY = normalized;
     clearTokenCache();
-    res.json({ ok: true });
+    // Re-verify the GitHub App check now that PEM + (presumably) IDs are set.
+    // This is the second call in the Configure App flow, so by now everything
+    // the check needs is in place.
+    const check = await reverifyOnce('githubApp');
+    res.json({ ok: true, check });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -114,6 +131,9 @@ setupActionsRouter.post('/setup/upload-gh-config', async (req, res) => {
     await setAppSettings(patch);
     for (const [k, v] of Object.entries(patch)) process.env[k] = v;
     clearTokenCache();
+    // No reverify here — the modal flow calls upload-gh-key right after,
+    // which DOES reverify. Avoids running the check twice and wasting an
+    // API call against /app/installations.
     res.json({ ok: true, written: Object.keys(patch) });
   } catch (e) {
     res.status(500).json({ error: e.message });

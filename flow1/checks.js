@@ -183,7 +183,7 @@ export const checks = [
     async run() {
       try {
         const claude = await getRepoFile('CLAUDE.md');
-        if (!claude) return { status: 'red', detail: 'CLAUDE.md not found. Click Inject.', fixable: true };
+        if (!claude) return { status: 'red', detail: 'CLAUDE.md not found in target repo. Click Fix to inject the template.', fixable: true };
         // Spot-check a couple of contract files.
         const designDefaults = await getRepoFile('DESIGN_DEFAULTS.md');
         const labels = await getRepoFile('.github/labels.yml');
