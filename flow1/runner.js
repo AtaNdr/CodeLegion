@@ -13,10 +13,17 @@ export async function runOne(id) {
   } catch (e) {
     result = { status: 'red', detail: e.message };
   }
+  // If the check result explicitly sets `fixable: false`, respect that even
+  // when the check's static config says it's fixable. Some failure modes
+  // (e.g. feature unavailable on the user's GitHub plan) genuinely can't be
+  // fixed from CodeLegion's side.
+  const fixable = result.fixable === false
+    ? false
+    : !!(result.fixable || check.fixable);
   const entry = {
     status: result.status,
     detail: result.detail || '',
-    fixable: !!(result.fixable || check.fixable),
+    fixable,
     remediation: result.remediation || null,
     ranAt: new Date().toISOString(),
     durationMs: Date.now() - started,
@@ -42,13 +49,23 @@ export function getResults() {
 }
 
 export function summarize(results) {
-  let red = 0, yellow = 0, green = 0, unknown = 0;
+  let red = 0, yellow = 0, green = 0, unknown = 0, skipped = 0;
   for (const c of checks) {
-    const status = results[c.id]?.status || 'unknown';
-    if (status === 'green') green++;
+    const r = results[c.id];
+    const status = r?.status || 'unknown';
+    // A yellow row with fixable=false is genuinely skipped (e.g. branch
+    // protection on a free-plan private repo). Count it separately so the
+    // Flow 1 wizard can still complete.
+    if (status === 'yellow' && r?.fixable === false) skipped++;
+    else if (status === 'green') green++;
     else if (status === 'yellow') yellow++;
     else if (status === 'red') red++;
     else unknown++;
   }
-  return { red, yellow, green, unknown, total: checks.length, allGreen: green === checks.length };
+  return {
+    red, yellow, green, unknown, skipped, total: checks.length,
+    allGreen: green === checks.length,
+    // Setup is "done" when every row is either green or explicitly skipped.
+    allDone: (green + skipped) === checks.length,
+  };
 }

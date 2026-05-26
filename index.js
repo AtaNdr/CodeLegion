@@ -75,7 +75,7 @@ app.get(['/', '/status'], async (_req, res) => {
 
   let fleetHtml = '';
   let costHtml = '';
-  if (summary.allGreen) {
+  if (summary.allDone) {
     try {
       const fleet = await fleetSnapshot();
       fleetHtml = renderFleet(fleet);

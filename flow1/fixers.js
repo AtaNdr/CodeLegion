@@ -74,6 +74,14 @@ export const fixers = {
       await setBranchProtection('main');
       return { status: 'green', detail: 'main protected (1 review + CODEOWNERS)' };
     } catch (e) {
+      if (e.code === 'GH_BRANCH_PROTECTION_UNAVAILABLE') {
+        return {
+          status: 'yellow',
+          detail: 'Skipped — feature not available on this GitHub plan.',
+          fixable: false,
+          remediation: e.message,
+        };
+      }
       if (e.code === 'GH_APP_MISSING_ADMIN') {
         return {
           status: 'yellow',

@@ -4,10 +4,13 @@ import { escapeHtml, statusDot, pill } from '../common.js';
 import { checks } from '../../flow1/checks.js';
 
 export function renderSetup({ results, summary }) {
-  const collapsed = summary.allGreen ? '' : 'open';
+  const collapsed = summary.allDone ? '' : 'open';
+  const skippedNote = summary.skipped ? ` · ${summary.skipped} skipped` : '';
   const headline = summary.allGreen
     ? `Setup complete — ${summary.green}/${summary.total} green`
-    : `Setup — ${summary.green}/${summary.total} green · ${summary.yellow} warn · ${summary.red} fail · ${summary.unknown} unrun`;
+    : summary.allDone
+    ? `Setup complete — ${summary.green}/${summary.total} green${skippedNote}`
+    : `Setup — ${summary.green}/${summary.total} green · ${summary.yellow} warn · ${summary.red} fail · ${summary.unknown} unrun${skippedNote}`;
 
   const rows = checks.map(c => {
     const r = results[c.id];
@@ -42,7 +45,7 @@ export function renderSetup({ results, summary }) {
   return `
 <details ${collapsed}>
   <summary><h2 style="display:inline-block; margin:0">Flow 1 — Infrastructure setup</h2>
-    <span class="pill pill-${summary.allGreen ? 'green' : (summary.red > 0 ? 'red' : 'yellow')}">${escapeHtml(headline)}</span>
+    <span class="pill pill-${summary.allDone ? 'green' : (summary.red > 0 ? 'red' : 'yellow')}">${escapeHtml(headline)}</span>
   </summary>
   <div class="card" style="margin-top:.5rem">
     <div class="spread" style="margin-bottom:.5rem">

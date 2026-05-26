@@ -231,8 +231,11 @@ export async function setBranchProtection(branch = 'main') {
     try { parsed = JSON.parse(text); } catch {}
     const msg = parsed?.message || text;
     console.error(`[branch-protection] PUT failed ${resp.status}:`, text);
-    // Only blame the admin-perm gap when GitHub's message indicates it.
-    // Otherwise surface the raw message so the user can see the real cause.
+    if (resp.status === 403 && /upgrade to github pro|make this repository public/i.test(msg)) {
+      const err = new Error('Branch protection on private repos requires a paid GitHub plan (Pro or higher). Either upgrade, make the repo public, or skip this check — it has no effect on the rest of the fleet.');
+      err.code = 'GH_BRANCH_PROTECTION_UNAVAILABLE';
+      throw err;
+    }
     if (resp.status === 403 && /resource not accessible by integration/i.test(msg)) {
       const err = new Error(adminPermError() + `\n\nGitHub raw message: "${msg}"`);
       err.code = 'GH_APP_MISSING_ADMIN';
@@ -263,6 +266,11 @@ export async function getBranchProtection(branch = 'main') {
     let parsed = null;
     try { parsed = JSON.parse(text); } catch {}
     const msg = parsed?.message || text;
+    if (resp.status === 403 && /upgrade to github pro|make this repository public/i.test(msg)) {
+      const err = new Error('Branch protection on private repos requires a paid GitHub plan (Pro or higher). Either upgrade, make the repo public, or skip this check — it has no effect on the rest of the fleet.');
+      err.code = 'GH_BRANCH_PROTECTION_UNAVAILABLE';
+      throw err;
+    }
     if (resp.status === 403 && /resource not accessible by integration/i.test(msg)) {
       const err = new Error(adminPermError() + `\n\nGitHub raw message: "${msg}"`);
       err.code = 'GH_APP_MISSING_ADMIN';
