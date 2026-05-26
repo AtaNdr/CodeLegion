@@ -72,16 +72,15 @@ az webapp deploy --resource-group codelegion-rg --name <your-webapp-name> --src-
 
 Open `https://<your-webapp>.azurewebsites.net/status`. The Flow 1 wizard appears. Click **Run all** to execute every check. Most will be red.
 
-Walk top-to-bottom and click **Fix** (or **Upload key**, **Upload PEM**) on each red row:
+Walk top-to-bottom and click **Fix** (or **Upload key**, **Configure App**) on each red row. After each fix the check auto-reverifies — give it a few seconds to turn green.
 
 | Check | What you do |
 |---|---|
 | **Subscription accessible** | Already green if you set `AZURE_SUBSCRIPTION_ID` correctly. |
 | **Resource group** | Auto-detected from the Web App. |
-| **Network** | Click **Fix** → adopts your VNet + NAT + Public IP from step 2, adds the `agents` subnet (and creates an NSG for it) in a free /24 inside the VNet's address space. ~30s. |
-| **Anthropic key valid** | Click **Upload key** → paste your `sk-ant-...`. |
-| **GitHub App installed** | First, create a GitHub App (see below), then click **Upload PEM** + supply IDs. |
-| **Repo accessible** | After installing the App on your target repo, this turns green automatically. |
+| **Network (vnet · agents subnet · NSG · NAT)** | Click **Fix** → adopts your VNet + NAT + Public IP from step 2, adds the `agents` subnet (and creates an NSG for it) in a free `/24` inside the VNet's address space. ~30s. |
+| **Anthropic key valid** | Click **Upload key** → paste your `sk-ant-...`. Validates via a `GET /v1/models` probe. |
+| **GitHub App + repo access** | Click **Configure App** → modal opens with the webhook URL + secret you'll need on github.com. Create the App there, then paste back App ID, Installation ID, owner, repo, and the PEM. See **GitHub App creation** below for the github.com walkthrough. |
 | **Repo template installed** | Click **Fix** → 14 contract files (CLAUDE.md, etc.) pushed to your target repo via Contents API. |
 | **GitHub labels** | Click **Fix** → 11 issue labels created on your target repo. |
 | **Branch protection (main)** | Click **Fix** → requires 1 review + CODEOWNERS on main. |
@@ -90,16 +89,20 @@ When all rows are green, Flow 1 collapses and Flow 2 (the live fleet dashboard) 
 
 ### GitHub App creation (one-time)
 
-1. Go to your GitHub settings → Developer settings → GitHub Apps → **New GitHub App**.
-2. Name it (e.g., `codelegion-yourorg`). Homepage URL = your Web App URL.
-3. **Webhook URL:** `https://<your-webapp>.azurewebsites.net/webhook`
-4. **Webhook secret:** the wizard's **Configure App** modal displays the URL + secret with copy buttons (it generates one on the fly if it doesn't exist). Paste those into the GitHub App's webhook fields.
-5. **Permissions:**
-   - Repository: Contents (R/W), Issues (R/W), Pull requests (R/W), Metadata (R), Workflows (R/W if you want it to manage labels/protection), Administration (R/W for branch protection)
-   - Subscribe to events: Issues, Issue comment, Pull request, Pull request review
-6. Create. Note the **App ID**. Generate a private key — download the `.pem` file.
-7. Install the App on your target repo. Note the **Installation ID** (visible in the URL after installation: `.../installations/<ID>`).
-8. Back in the wizard: paste the PEM into "Upload PEM", and the App ID / Installation ID / target owner & repo into the GitHub config form.
+The **Configure App** button in the wizard is your launchpad — open it first so you have the webhook URL + secret ready to paste.
+
+1. In the wizard, click **Configure App** on the *GitHub App + repo access* row. The top of the modal shows the **Webhook URL** and **Webhook secret** with Copy buttons. Keep the modal open.
+2. In a new tab: GitHub → your settings → Developer settings → GitHub Apps → **New GitHub App**.
+3. Fill in the App form:
+   - **Name:** anything memorable (e.g. `codelegion-yourorg`).
+   - **Homepage URL:** your Web App URL.
+   - **Webhook URL:** paste from the wizard modal.
+   - **Webhook secret:** paste from the wizard modal.
+   - **Permissions** — Repository: Contents (R/W), Issues (R/W), Pull requests (R/W), Metadata (R), Workflows (R/W) for label/protection management, Administration (R/W) for branch protection.
+   - **Subscribe to events:** Issues, Issue comment, Pull request, Pull request review.
+4. Create the App. Note the **App ID** shown at the top of the App's settings page. Generate a private key — download the `.pem` file.
+5. Install the App on your target repo (from the App's Install App tab). After install, note the **Installation ID** from the URL: `.../installations/<ID>`.
+6. Back in the wizard modal (still open from step 1): paste App ID, Installation ID, repo owner, repo name, and the contents of the `.pem` file. Click **Save**.
 
 ---
 
