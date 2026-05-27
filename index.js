@@ -16,6 +16,7 @@ import { getResults, summarize } from './flow1/runner.js';
 import { fleetSnapshot } from './flow2/vmlist.js';
 import { readRecent, todayMonthTotals } from './flow2/cost.js';
 import { startRetirementSweep } from './flow2/retirement.js';
+import { startReconcileLoop } from './flow2/reconcile.js';
 import { getAppSetting, setAppSettings } from './azure/app-settings.js';
 import { getUpdateInfo } from './azure/self-update.js';
 
@@ -132,6 +133,7 @@ app.listen(config.port, () => {
   console.log(`[v2] controller v${config.version} listening on :${config.port}`);
   console.log(`[v2] subscription=${config.subscriptionId || 'UNSET'} rg=${config.resourceGroup || 'UNSET'} webapp=${config.webAppName || 'UNSET'}`);
   try { startRetirementSweep(); } catch (e) { console.warn('[v2] retirement sweep not started:', e.message); }
+  try { startReconcileLoop(); } catch (e) { console.warn('[v2] reconcile loop not started:', e.message); }
   // Fire and forget — don't block boot on App Settings writes.
   publishVersionToAppSettings().catch(() => {});
 });

@@ -137,7 +137,7 @@ To make this reliable, **the controller creates the onboarding issue itself** wh
 
 1. Open an issue in your target repo using the **Agent Task** template (the wizard injected this).
 2. Make sure it has the `agent-ready` label. **`model:sonnet` is the default** — you only need a `model:*` label if you want to route to `haiku` (trivial fixes) or `opus` (hard problems).
-3. Within ~3 minutes a VM spawns in your Azure RG. The Flow 2 dashboard shows it.
+3. The controller assigns the work. A **reconcile loop** runs in the controller every ~45s (and is kicked immediately by the GitHub webhook): it lists unclaimed `agent-ready` issues and the fleet's live status, then assigns each issue to a free agent of the matching model — waking a deallocated VM or spinning a new one (within caps) if none is free. Within ~3 minutes a VM is running and assigned. The Flow 2 dashboard shows it.
 4. **First run:** the agent opens the onboarding PR described above — merge it, then your issue gets worked on the next cycle. **After onboarding:** the agent claims the issue and posts a decision comment — one of:
    - `Decision: implement directly` — already clear and in the standard template
    - `Decision: standardize and implement` — clear intent but unstructured; it posts a `## Standardized spec` (What / Acceptance criteria / Likely files / Out of scope) and proceeds **without** waiting

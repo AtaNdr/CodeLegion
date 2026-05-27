@@ -2,7 +2,7 @@
 
 import express from 'express';
 import crypto from 'crypto';
-import { verifySignature, handleWebhook } from './webhook.js';
+import { verifySignature } from './webhook.js';
 import { appendCostRecord, buildCostRecord, todayMonthTotals, readRecent } from './cost.js';
 import { appendAgentLog, readAgentLog } from './logs.js';
 import { recordStatus, appendTimelineLines, readTimeline } from './activity.js';
@@ -15,6 +15,9 @@ import {
 import { injectFiles, cleanFiles } from '../github/repo.js';
 import { retireStaleAgents } from './retirement.js';
 import { selfUpdate } from '../azure/self-update.js';
+import { reconcile, getAssignment, clearHint } from './reconcile.js';
+
+const BUSY_STATES = new Set(['claimed', 'planning', 'coding']);
 
 export const flow2Router = express.Router();
 
@@ -47,23 +50,20 @@ function requireAdminToken(req, res, next) {
 }
 
 // ---- Webhook ----------------------------------------------------
-flow2Router.post('/webhook', async (req, res) => {
+// The webhook is now just a low-latency trigger for the reconcile loop —
+// it doesn't decide anything itself. Reconcile lists unclaimed issues and
+// assigns/wakes/spins as needed.
+flow2Router.post('/webhook', (req, res) => {
   const raw = req.body;  // Buffer (mounted with express.raw in index.js)
-  if (!Buffer.isBuffer(raw)) {
-    return res.status(400).send('expected raw body');
-  }
+  if (!Buffer.isBuffer(raw)) return res.status(400).send('expected raw body');
   if (!verifySignature(raw, req.headers['x-hub-signature-256'])) {
     return res.status(401).send('bad signature');
   }
-  let payload;
-  try { payload = JSON.parse(raw.toString('utf8')); }
-  catch (e) { return res.status(400).send('bad json'); }
-  try {
-    const result = await handleWebhook({ event: req.headers['x-github-event'], payload });
-    res.json(result);
-  } catch (e) {
-    console.error('[webhook] handler error:', e);
-    res.status(500).json({ error: e.message });
+  const event = req.headers['x-github-event'];
+  res.json({ ok: true, event, triggered: 'reconcile' });
+  // Fire-and-forget: only issue/PR events can change the work queue.
+  if (['issues', 'issue_comment', 'pull_request'].includes(event)) {
+    reconcile().catch((e) => console.error('[webhook→reconcile]', e.message));
   }
 });
 
@@ -84,7 +84,19 @@ flow2Router.post('/agent/status', requireReportToken, (req, res) => {
   const { vmName, state, issue, summary } = req.body || {};
   if (!vmName) return res.status(400).json({ error: 'vmName required' });
   recordStatus({ vmName, state, issue, summary });
+  // Once the agent is genuinely working, drop its assignment hint — its
+  // "busy" state is now tracked by status, and the hint reservation is done.
+  if (BUSY_STATES.has(state)) clearHint(vmName);
   res.json({ ok: true });
+});
+
+// The agent asks what to work on. Returns its current controller assignment
+// (or null). The agent then claims + executes it.
+flow2Router.get('/agent/next-task', requireReportToken, (req, res) => {
+  const vm = req.query.vm;
+  if (!vm) return res.status(400).json({ error: 'vm query param required' });
+  const a = getAssignment(vm);
+  res.json({ issue: a ? a.issue : null, onboarding: a ? !!a.onboarding : false });
 });
 
 flow2Router.post('/agent/sync', requireReportToken, (req, res) => {

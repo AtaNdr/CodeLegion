@@ -340,62 +340,20 @@ while true; do
   git checkout main 2>/dev/null || git checkout master 2>/dev/null || true
   git pull --quiet 2>/dev/null || true
 
-  # --- Onboarding gate ---------------------------------------------
-  # If context files are empty, work ONLY the onboarding issue. CRITICAL:
-  # when onboarding is needed we must NEVER fall through to claim a regular
-  # issue — otherwise the user's issue gets claimed-and-abandoned while the
-  # repo is un-onboarded. ensure_onboarding_issue returns the issue number
-  # directly (no lag-prone label-search round trip).
+  # --- Ask the controller what to work on --------------------------
+  # The controller's reconcile loop assigns unclaimed issues to free
+  # agents. We don't self-select from GitHub anymore — we just execute
+  # whatever the controller assigned us (or idle).
   IS_ONBOARDING_TASK="false"
-  NEEDS_ONBOARDING="false"
-  if repo_needs_onboarding; then
-    NEEDS_ONBOARDING="true"
-    ONBOARDING_NUM=$(ensure_onboarding_issue)
-  else
-    ONBOARDING_NUM=$(gh issue list --label "$ONBOARDING_LABEL" --state open --json number -q '.[0].number' 2>/dev/null || echo "")
+  ISSUE_NUM=""
+  if [[ -n "$CONTROLLER_URL" && -n "$REPORT_TOKEN" ]]; then
+    TASK_JSON=$(curl -sS -m 10 -H "Authorization: Bearer $REPORT_TOKEN" \
+      "$CONTROLLER_URL/agent/next-task?vm=$VM_NAME" 2>/dev/null || echo '{}')
+    ISSUE_NUM=$(echo "$TASK_JSON" | jq -r '.issue // empty' 2>/dev/null || echo "")
+    [[ "$(echo "$TASK_JSON" | jq -r '.onboarding // false' 2>/dev/null)" == "true" ]] && IS_ONBOARDING_TASK="true"
   fi
 
-  if [[ "$NEEDS_ONBOARDING" == "true" || ( -n "$ONBOARDING_NUM" && "$ONBOARDING_NUM" != "null" ) ]]; then
-    if [[ -z "$ONBOARDING_NUM" || "$ONBOARDING_NUM" == "null" ]]; then
-      # Onboarding needed but we couldn't resolve/create the issue this
-      # cycle. Wait and retry — do NOT claim regular issues.
-      log "Onboarding needed but onboarding issue unresolved this cycle. Waiting."
-      sleep "$POLL_INTERVAL"; continue
-    fi
-    # Is the onboarding issue already claimed by some agent?
-    OB_CLAIM_COUNT=$(gh issue view "$ONBOARDING_NUM" --json labels \
-      -q '[.labels[].name | select(startswith("agent:") and . != "agent:onboarding" and . != "agent:needs-revision" and . != "agent:blocked" and . != "agent:do-not-pick" and . != "agent:approved")] | length' 2>/dev/null || echo 0)
-    if (( OB_CLAIM_COUNT > 0 )); then
-      log "Onboarding #$ONBOARDING_NUM in progress by another agent. Waiting."
-      sleep "$POLL_INTERVAL"; continue
-    fi
-    ISSUE_NUM="$ONBOARDING_NUM"
-    IS_ONBOARDING_TASK="true"
-  else
-    # --- Normal issue selection ------------------------------------
-    ISSUE_JSON=$(gh issue list --label "agent-ready" --state open --json number,title,body,labels --limit 50 2>/dev/null || echo "[]")
-    # Sonnet (the default model) also claims issues that have NO model:* label
-    # at all — matching the webhook's "default to sonnet" behavior. Haiku and
-    # Opus only claim issues that explicitly request them.
-    if [[ "$MODEL" == "sonnet" ]]; then
-      ISSUE_NUM=$(echo "$ISSUE_JSON" | jq -r --arg ML "$MODEL_LABEL" '
-        [.[] | select(
-          (.labels | map(.name) | any(test("^agent:") and . != "agent:needs-revision" and . != "agent:blocked" and . != "agent:do-not-pick" and . != "agent:approved")) | not
-        ) | select(
-          ((.labels | map(.name) | any(. == $ML))
-           or (.labels | map(.name) | any(test("^model:")) | not))
-        )] | sort_by(.number) | .[0].number // empty')
-    else
-      ISSUE_NUM=$(echo "$ISSUE_JSON" | jq -r --arg ML "$MODEL_LABEL" '
-        [.[] | select(
-          (.labels | map(.name) | any(test("^agent:") and . != "agent:needs-revision" and . != "agent:blocked" and . != "agent:do-not-pick" and . != "agent:approved")) | not
-        ) | select(
-          .labels | map(.name) | any(. == $ML)
-        )] | sort_by(.number) | .[0].number // empty')
-    fi
-  fi
-
-  if [[ -z "$ISSUE_NUM" ]]; then
+  if [[ -z "$ISSUE_NUM" || "$ISSUE_NUM" == "null" ]]; then
     sleep "$POLL_INTERVAL"; continue
   fi
 
