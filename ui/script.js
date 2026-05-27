@@ -256,6 +256,50 @@ async function doSelfUpdate() {
   catch (e) { alert('Self-update failed: ' + e.message); }
 }
 
+async function doInjectRepo() {
+  const ok = await showConfirm({
+    title: 'Inject / update repo files',
+    body: 'Push the contract files (CLAUDE.md, COMMENT_STYLE.md, labels, etc.) into the target repo. Always-overwrite files are refreshed; project files (CONTEXT/ARCHITECTURE/DESIGN/LESSONS/…) are only created if missing.',
+    okLabel: 'Inject',
+  });
+  if (!ok) return;
+  try {
+    const r = await postAdmin('/admin/inject-repo');
+    const summary = (r.results || [])
+      .reduce((acc, x) => { acc[x.action] = (acc[x.action] || 0) + 1; return acc; }, {});
+    alert('Repo inject done: ' + (Object.entries(summary).map(([k, v]) => k + ' ' + v).join(', ') || 'no changes'));
+  } catch (e) { alert('Inject failed: ' + e.message); }
+}
+
+async function doCleanRepo() {
+  const ok = await showConfirm({
+    title: 'Clean repo files',
+    body: 'Remove the always-overwrite contract files CodeLegion injected. Project files you may have edited (CONTEXT/ARCHITECTURE/DESIGN/LESSONS) are left alone.',
+    okLabel: 'Clean',
+    danger: true,
+  });
+  if (!ok) return;
+  try {
+    const r = await postAdmin('/admin/clean-repo');
+    const summary = (r.results || [])
+      .reduce((acc, x) => { acc[x.action] = (acc[x.action] || 0) + 1; return acc; }, {});
+    alert('Repo clean done: ' + (Object.entries(summary).map(([k, v]) => k + ' ' + v).join(', ') || 'no changes'));
+  } catch (e) { alert('Clean failed: ' + e.message); }
+}
+
+// Persist <details data-persist> open/closed state across reloads so the
+// auto-refresh / post-action reload doesn't fight the user (e.g. Flow 1
+// re-collapsing every time you click Run once setup is complete).
+(function persistDetails() {
+  document.querySelectorAll('details[data-persist]').forEach((d) => {
+    const key = 'cl-details:' + (d.id || 'anon');
+    const saved = localStorage.getItem(key);
+    if (saved === 'open') d.open = true;
+    else if (saved === 'closed') d.open = false;
+    d.addEventListener('toggle', () => localStorage.setItem(key, d.open ? 'open' : 'closed'));
+  });
+})();
+
 // Auto-refresh every 30s, but skip while any <dialog> is open. Modal flows
 // (Configure App, log/timeline viewer) take longer than 30s; reloading
 // mid-flow would destroy the user's input.

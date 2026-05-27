@@ -43,14 +43,18 @@ export function renderSetup({ results, summary }) {
   }).join('');
 
   return `
-<details ${collapsed}>
+<details id="flow1-details" data-persist ${collapsed}>
   <summary><h2 style="display:inline-block; margin:0">Flow 1 — Infrastructure setup</h2>
     <span class="pill pill-${summary.allDone ? 'green' : (summary.red > 0 ? 'red' : 'yellow')}">${escapeHtml(headline)}</span>
   </summary>
   <div class="card" style="margin-top:.5rem">
     <div class="spread" style="margin-bottom:.5rem">
       <span class="muted">Run each check individually or all at once. Fixes available where indicated.</span>
-      <button class="primary" onclick="runAllChecks()">Run all</button>
+      <div class="row">
+        <button onclick="doInjectRepo()">Inject / update repo files</button>
+        <button class="danger" onclick="doCleanRepo()">Clean repo files</button>
+        <button class="primary" onclick="runAllChecks()">Run all</button>
+      </div>
     </div>
     <table>
       <thead><tr>

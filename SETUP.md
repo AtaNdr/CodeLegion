@@ -83,7 +83,7 @@ Walk top-to-bottom and click **Fix** (or **Upload key**, **Configure App**) on e
 | **Network (vnet · agents subnet · NSG · NAT)** | Click **Fix** → adopts your VNet + NAT + Public IP from step 2, adds the `agents` subnet (and creates an NSG for it) in a free `/24` inside the VNet's address space. ~30s. |
 | **Anthropic key valid** | Click **Upload key** → paste your `sk-ant-...`. Validates via a `GET /v1/models` probe. |
 | **GitHub App + repo access** | Click **Configure App** → modal opens with the webhook URL + secret you'll need on github.com. Create the App there, then paste back App ID, Installation ID, owner, repo, and the PEM. See **GitHub App creation** below for the github.com walkthrough. |
-| **Repo template installed** | Click **Fix** → 14 contract files (CLAUDE.md, etc.) pushed to your target repo via Contents API. |
+| **Repo template installed** | Click **Fix** → 14 contract files (CLAUDE.md, etc.) pushed to your target repo via Contents API. Once green, use the **Inject / update repo files** button in the card header to re-push (e.g. after a CodeLegion update changes a contract file). |
 | **GitHub labels** | Click **Fix** → 11 issue labels created on your target repo. |
 | **Branch protection (main)** | Click **Fix** → requires 1 review + CODEOWNERS on main. **Not available** on free-plan private repos — the check auto-skips with a yellow "feature not available" status in that case. Either upgrade to GitHub Pro, make the repo public, or just leave it skipped (Flow 1 still completes). |
 
@@ -196,7 +196,7 @@ The controller serves the agent shell scripts at `/scripts/*`, and each VM downl
 
 ## Tearing it down
 
-1. Click **Clean repo** in the dashboard. It removes the contract files (CLAUDE.md, COMMENT_STYLE.md, etc.) it injected.
+1. Click **Clean repo files** (in the Flow 1 — Infrastructure setup card header). It removes the always-overwrite contract files (CLAUDE.md, COMMENT_STYLE.md, etc.) it injected.
 2. Click **Sleep all** to deallocate every VM.
 3. Delete the resource group via the Azure portal. That removes the Web App, all VMs, the network, and everything else.
 4. Uninstall the GitHub App from your repo.
