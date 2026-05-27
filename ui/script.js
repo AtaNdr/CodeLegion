@@ -134,9 +134,15 @@ async function fixCheck(id) {
   if (!ok) return;
   const btn = document.querySelector(\`[data-fix="\${id}"]\`);
   if (btn) { btn.disabled = true; btn.textContent = '…'; }
-  try { await postJson('/setup/action/' + encodeURIComponent(id)); }
-  catch (e) { alert('Fix failed: ' + e.message); }
-  finally { location.reload(); }
+  const t = showToast('Running fix for ' + id + '… (re-verifying, ~10s)', { type: 'loading' });
+  try {
+    await postJson('/setup/action/' + encodeURIComponent(id));
+    t.update('Fix applied for ' + id + ' — refreshing', 'success', 3000);
+    setTimeout(() => location.reload(), 1200);
+  } catch (e) {
+    t.update('Fix failed for ' + id + ': ' + e.message, 'error', 8000);
+    if (btn) { btn.disabled = false; btn.textContent = 'Fix'; }
+  }
 }
 
 const UPLOAD_CONFIGS = {
@@ -233,6 +239,13 @@ async function submitGithubConfig(ev) {
 }
 
 // Fleet (Phase 4+) helpers
+// [loading-label, success-label] per action.
+const VM_ACTION_LABELS = {
+  wake: ['Waking', 'wake requested'],
+  sleep: ['Sleeping', 'sleep requested'],
+  delete: ['Deleting', 'deleted'],
+  'force-sync': ['Syncing', 'synced from VM'],
+};
 async function vmAction(name, action) {
   if (action === 'delete') {
     const ok = await showConfirm({
@@ -243,19 +256,33 @@ async function vmAction(name, action) {
     });
     if (!ok) return;
   }
+  const [ing, done] = VM_ACTION_LABELS[action] || [action, action];
+  const t = showToast(ing + ' ' + name + '…', { type: 'loading' });
   try {
     if (action === 'delete') {
-      await adminFetch('/admin/vm/' + encodeURIComponent(name), { method: 'DELETE' });
+      const r = await adminFetch('/admin/vm/' + encodeURIComponent(name), { method: 'DELETE' });
+      if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || r.statusText);
     } else {
       await postAdmin('/admin/vm/' + encodeURIComponent(name) + '/' + action);
     }
-  } catch (e) { alert(e.message); }
-  finally { location.reload(); }
+    t.update(name + ' — ' + done, 'success', 4000);
+    setTimeout(() => location.reload(), 1500);
+  } catch (e) {
+    t.update(ing + ' ' + name + ' failed: ' + e.message, 'error', 8000);
+  }
 }
 async function fleetAction(action) {
-  try { await postAdmin('/admin/' + action); }
-  catch (e) { alert(e.message); }
-  finally { location.reload(); }
+  const label = action === 'wake-all' ? 'Waking all agents'
+    : action === 'sleep-all' ? 'Sleeping all agents' : action;
+  const t = showToast(label + '…', { type: 'loading' });
+  try {
+    const r = await postAdmin('/admin/' + action);
+    const affected = (r.woken || r.slept || []).length;
+    t.update(label + ' — ' + affected + ' affected', 'success', 4000);
+    setTimeout(() => location.reload(), 1500);
+  } catch (e) {
+    t.update(label + ' failed: ' + e.message, 'error', 8000);
+  }
 }
 async function showTimeline(vmName) {
   const r = await fetch('/admin/vm/' + encodeURIComponent(vmName) + '/timeline');
@@ -279,10 +306,14 @@ async function showLog(vmName) {
 async function promptSpin() {
   const model = prompt('Model (haiku/sonnet/opus)?', 'sonnet');
   if (!model) return;
+  const t = showToast('Creating ' + model + ' agent…', { type: 'loading' });
   try {
-    await postAdmin('/admin/spin', { model });
-    location.reload();
-  } catch (e) { alert(e.message); }
+    const r = await postAdmin('/admin/spin', { model });
+    t.update('Agent VM creating: ' + (r.vmName || 'started'), 'success', 5000);
+    setTimeout(() => location.reload(), 2000);
+  } catch (e) {
+    t.update('Create failed: ' + e.message, 'error', 8000);
+  }
 }
 
 async function doSelfUpdate() {
@@ -292,8 +323,13 @@ async function doSelfUpdate() {
     okLabel: 'Update now',
   });
   if (!ok) return;
-  try { await postAdmin('/admin/self-update'); alert('Update triggered. Refresh in ~60s.'); }
-  catch (e) { alert('Self-update failed: ' + e.message); }
+  const t = showToast('Triggering self-update…', { type: 'loading' });
+  try {
+    await postAdmin('/admin/self-update');
+    t.update('Update triggered — the Web App is restarting (~60s). Refresh the page after that.', 'success', 10000);
+  } catch (e) {
+    t.update('Self-update failed: ' + e.message, 'error', 8000);
+  }
 }
 
 function summarizeResults(results) {
@@ -354,6 +390,7 @@ async function doCleanRepo() {
 // mid-flow would destroy the user's input.
 setInterval(() => {
   if (document.querySelector('dialog[open]')) return;
+  if (document.querySelector('.toast-loading')) return;  // don't interrupt an in-flight action
   location.reload();
 }, 30000);
 
