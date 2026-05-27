@@ -120,60 +120,57 @@ If `DESIGN.md` and `DESIGN_DEFAULTS.md` conflict, the defaults win — they are 
 
 ## Workflow
 
+The **standard template** is the Agent Task issue form: **What** (one-sentence change), **Acceptance criteria** (a testable checklist), **Likely files affected**, **Out of scope**. Every decision below is judged against it, and the Acceptance criteria become your test spec.
+
 ### Step 0 — Always post your decision first
 
 Before any branch or code, post ONE comment on the issue stating your decision and a one-sentence why. Start the comment with exactly one of:
 
-- `Decision: implement directly — <why>`
-- `Decision: propose triage — <why>`
-- `Decision: blocked — <why>`
+- `Decision: implement directly — <why>` — clear, standard, scoped to one PR.
+- `Decision: standardize and implement — <why>` — intent is clear and scoped, but the description isn't in the standard template; you'll restructure it faithfully and proceed (no approval needed).
+- `Decision: propose triage — <why>` — ambiguous, needs product decisions, or too broad for one PR; you'll propose a standardized/split version and wait for approval.
+- `Decision: blocked — <why>` — missing info or an unmet dependency you can't resolve.
 
-This is non-negotiable: every issue an agent picks up must carry a visible record of what the agent decided and the reason, so a human scanning the issue always knows why it's in its current state. Then act on that decision per the steps below.
+This is non-negotiable: every issue an agent picks up must carry a visible record of what the agent decided and why, so a human scanning the issue always knows its state. Then act on that decision.
 
-### Step 1 — Decide if the issue needs triage
+### Step 1 — Assess the description against the standard template
 
-When you claim an issue, first decide if it's actionable or needs triage.
+- **OK and standard** — has a clear What and testable Acceptance criteria, scoped to one PR → *implement directly* (Step 4).
+- **OK but not standard** — you understand the intent and it fits one PR, but it's unstructured (prose, missing criteria you can infer **without guessing**) → *standardize and implement* (Step 2).
+- **Not OK** — intent is ambiguous, you'd have to make product decisions, or scope needs 3+ PRs → *propose triage* (Step 3).
+- **Blocked** — you can't proceed without info/access only a human has → comment the specific question, add `agent:blocked`, stop.
 
-**Skip triage and proceed straight to coding if** the issue has:
-- A clear "what" (one-sentence description of the change)
-- Acceptance criteria you could write tests against
-- Some indication of files/areas affected, or a scope you can determine yourself with a quick repo scan
-- A scope that fits in one PR (roughly: <500 lines changed, touches related files, single coherent unit of work)
+The line between standardize and triage: if you can restructure the request **faithfully from what's written**, standardize and proceed. If restructuring requires **guessing at intent or making product calls**, that's triage — propose and wait.
 
-**Triage is required if** any of these are true:
-- The issue is a paragraph of prose with no structured criteria
-- "What done looks like" is ambiguous
-- Scope is broad enough to need 3+ PRs (multiple verbs in title, "and also..." statements, mixes refactor with feature, touches unrelated subsystems)
-- You'd have to make significant product decisions to proceed
+### Step 2 — Standardize and implement (OK but not standard)
 
-If unsure, lean toward proceeding. Don't triage well-formed issues — it wastes time and annoys the humans who wrote them well.
+1. Post a comment headed `## Standardized spec` containing the standard template filled in from the issue: **What**, **Acceptance criteria** (testable), **Likely files affected**, **Out of scope**. End with: "Proceeding on this interpretation — correct me on the issue if it's off."
+2. **Do not wait for approval.** The standardized Acceptance criteria are now your spec.
+3. Never edit the original issue body — the standardized spec lives in your comment.
+4. Proceed to Step 4.
 
-### Step 2a — If triage is needed
+### Step 3 — Propose triage (not OK)
 
-1. Post a triage proposal as a comment using the format below
-2. Add label `triage:proposed`, remove `agent-ready`, release your claim
-3. Stop. Do not write code. Do not pick up the issue again until label `agent:approved` is added.
+1. Post a triage proposal as a comment using the format below (a standardized **Reformat**, or a **Split** into child issues).
+2. Add label `triage:proposed`, remove `agent-ready`, release your claim.
+3. Stop. Do not write code. Do not pick the issue up again until label `agent:approved` is added.
 
-When `agent:approved` appears (human approved or modified the proposal):
-1. Re-claim the issue
-2. **Re-read the proposal comment fresh** — the human may have edited it. The current state of the comment is what you execute, not your original suggestion.
-3. If the proposal is a reformat only: update your understanding from the comment, then proceed to code (Step 3 below)
-4. If the proposal is a split: create the child issues using `gh issue create`, set up `blocked-by` dependencies in their bodies, mark the parent with `epic` label, comment on the parent linking all children, and stop. Only the unblocked leaves get `agent-ready` and `model:*` labels — they will be picked up normally.
+When `agent:approved` appears (human approved or edited the proposal):
+1. Re-claim the issue.
+2. **Re-read the proposal comment fresh** — the human may have edited it. Execute the current comment, not your original suggestion.
+3. Reformat → the proposal's Acceptance criteria are your spec; proceed to Step 4.
+4. Split → create the child issues with `gh issue create`, set `blocked-by` dependencies in their bodies, mark the parent `epic`, comment linking all children, stop. Only unblocked leaves get `agent-ready` + `model:*`.
 
-### Step 2b — If triage is not needed
-
-Proceed to step 3.
-
-### Step 3 — Code
+### Step 4 — Code
 
 1. Read context files: CLAUDE.md, CONTEXT.md, ARCHITECTURE.md, DESIGN.md (if UI), DESIGN_DEFAULTS.md, KNOWN_ISSUES.md, LESSONS.md, DO_NOT_TOUCH.md
 2. Post a plan as a comment on the issue
 3. Branch: `<your-name>/issue-<N>-<short-slug>`
 4. Implement
-5. Write tests (happy AND unhappy path)
+5. **Write tests against the Acceptance criteria** — one or more tests verifying *each* criterion from your spec (original, standardized, or approved), covering happy AND unhappy paths. If a criterion isn't testable, say why in the PR.
 6. Run gates: tests, lint, type-check — all pass
-7. Self-review your full diff
-8. Push, open PR using the template, body includes "Closes #<issue>"
+7. Self-review your full diff; confirm every Acceptance criterion is met and covered by a test
+8. Push, open PR using the template, body includes "Closes #<issue>" and a checklist mapping each Acceptance criterion to the test(s) that cover it
 9. Comment on the issue with PR link
 10. Idle
 

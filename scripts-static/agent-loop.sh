@@ -422,7 +422,7 @@ while true; do
   if [[ "$IS_ONBOARDING_TASK" == "true" ]]; then
     gh issue comment "$ISSUE_NUM" --body "$EMOJI **$NAME** ($MODEL) claimed this as the **onboarding task** — the repo's context files are still empty, so I'll study the codebase and draft CONTEXT/ARCHITECTURE/DESIGN, then open a PR. $SIGNOFF" 2>/dev/null || true
   else
-    gh issue comment "$ISSUE_NUM" --body "$EMOJI **$NAME** ($MODEL) picked this up. Reading the repo and the issue now to decide whether to implement directly or propose triage — my decision and reasoning follow in the next comment. $SIGNOFF" 2>/dev/null || true
+    gh issue comment "$ISSUE_NUM" --body "$EMOJI **$NAME** ($MODEL) picked this up. Reading the repo and issue now to decide: implement directly, standardize-and-implement, or propose triage — my decision and reasoning follow in the next comment. $SIGNOFF" 2>/dev/null || true
   fi
 
   SLUG=$(echo "$ISSUE_TITLE" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/--*/-/g' | sed 's/^-\|-$//g' | cut -c1-40)
@@ -455,17 +455,25 @@ Steps:
   else
     TASK_PROMPT="You are $NAME $EMOJI on $MODEL. Identity in ~/.agent-identity.json. Claimed issue #$ISSUE_NUM ($ISSUE_TITLE). Branch will be $BRANCH.
 
-Read CLAUDE.md, COMMENT_STYLE.md, CONTEXT.md, ARCHITECTURE.md.
+Read CLAUDE.md (especially the Workflow section), COMMENT_STYLE.md, CONTEXT.md, ARCHITECTURE.md.
 
-Your FIRST action, before any code or branch, is to post ONE comment on issue #$ISSUE_NUM stating your decision and a one-sentence why. Use exactly this opening line then a brief reason:
-- 'Decision: implement directly — <why>' (clear, scoped, testable), or
-- 'Decision: propose triage — <why>' (vague, too broad, or needs splitting), or
-- 'Decision: blocked — <why>' (missing info or dependency).
+The STANDARD TEMPLATE for an issue is: What (one sentence) / Acceptance criteria (testable checklist) / Likely files affected / Out of scope. Assess this issue against it.
 
-Then act on that decision:
-- implement: post your plan, create the branch, implement, write tests, run the gates, open a PR whose body includes 'Closes #$ISSUE_NUM'.
-- triage: post the triage proposal per CLAUDE.md, add label triage:proposed, remove your claim, stop.
-- blocked: add label agent:blocked, stop."
+Your FIRST action, before any code or branch, is to post ONE comment on issue #$ISSUE_NUM stating your decision and a one-sentence why, opening with exactly one of:
+- 'Decision: implement directly — <why>' — clear, already in standard form, scoped to one PR.
+- 'Decision: standardize and implement — <why>' — intent is clear and scoped, but not in the standard template; you'll restructure it faithfully and proceed WITHOUT waiting.
+- 'Decision: propose triage — <why>' — ambiguous, needs product decisions, or too broad for one PR; propose and wait for approval.
+- 'Decision: blocked — <why>' — missing info or dependency you can't resolve.
+
+Rule of thumb: if you can restructure the request faithfully from what's written, standardize and proceed; if it needs guessing at intent or product calls, propose triage instead.
+
+Then act:
+- implement directly: post a plan, create the branch, implement.
+- standardize and implement: first post a '## Standardized spec' comment (the template filled in: What / Acceptance criteria / Likely files / Out of scope) ending with 'Proceeding on this interpretation — correct me on the issue if it's off.', then implement. Do NOT edit the issue body. Do NOT wait for approval.
+- propose triage: post the triage proposal per CLAUDE.md, add label triage:proposed, remove your claim, stop.
+- blocked: comment the specific question, add label agent:blocked, stop.
+
+When implementing (either path): write tests that verify EACH acceptance criterion from your spec (original or standardized), happy AND unhappy paths. Run tests/lint/type-check. Open a PR whose body includes 'Closes #$ISSUE_NUM' and a checklist mapping each acceptance criterion to its covering test(s)."
   fi
 
   task_log="/var/log/agent-task-$ISSUE_NUM.log"
