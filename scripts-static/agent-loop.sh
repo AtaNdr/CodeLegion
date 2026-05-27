@@ -165,6 +165,37 @@ self_deallocate() {
   exit 0
 }
 
+# ---- Onboarding ------------------------------------------------
+# A fresh repo ships CONTEXT.md / ARCHITECTURE.md / DESIGN.md with the
+# placeholder marker "<!-- explorer: empty -->". CLAUDE.md tells regular
+# tasks to halt until those are filled. The first agent's job is to fill
+# them: it creates (or claims) an `agent:onboarding` issue, writes the
+# three files, and opens a PR. Regular work is gated until that's done.
+ONBOARDING_LABEL="agent:onboarding"
+
+repo_needs_onboarding() {
+  local f
+  for f in CONTEXT.md ARCHITECTURE.md DESIGN.md; do
+    [[ ! -f "$f" ]] && return 0
+    grep -q '<!-- explorer: empty -->' "$f" && return 0
+  done
+  return 1
+}
+
+ensure_onboarding_issue() {
+  local existing
+  existing=$(gh issue list --label "$ONBOARDING_LABEL" --state open --json number -q '.[0].number' 2>/dev/null || echo "")
+  if [[ -n "$existing" && "$existing" != "null" ]]; then
+    return 0
+  fi
+  log "Creating onboarding issue"
+  gh issue create \
+    --title "Onboard the fleet: write CONTEXT.md, ARCHITECTURE.md, DESIGN.md" \
+    --label "agent-ready" --label "$ONBOARDING_LABEL" \
+    --body "The three context files are missing or still contain the \`<!-- explorer: empty -->\` placeholder. No agent can do regular work until they're filled. The agent that picks this up should read the whole repo and write CONTEXT.md (what/stack/commands/conventions), ARCHITECTURE.md (why the structure, integrations), and DESIGN.md (UI contract or 'no UI'), then open a PR titled 'Initial agent fleet context' labelled \`agent:do-not-pick\`." \
+    2>/dev/null || log "Failed to create onboarding issue"
+}
+
 # ---- Main loop -------------------------------------------------
 log "Online. Model: $MODEL. Polling every ${POLL_INTERVAL}s."
 write_status "starting"
@@ -189,40 +220,74 @@ while true; do
   git checkout main 2>/dev/null || git checkout master 2>/dev/null || true
   git pull --quiet 2>/dev/null || true
 
-  ISSUE_JSON=$(gh issue list --label "agent-ready" --state open --json number,title,body,labels --limit 50 2>/dev/null || echo "[]")
-  # Sonnet (the default model) also claims issues that have NO model:* label
-  # at all — matching the webhook's "default to sonnet" behavior. Haiku and
-  # Opus only claim issues that explicitly request them.
-  if [[ "$MODEL" == "sonnet" ]]; then
-    ISSUE_NUM=$(echo "$ISSUE_JSON" | jq -r --arg ML "$MODEL_LABEL" '
-      [.[] | select(
-        (.labels | map(.name) | any(test("^agent:") and . != "agent:needs-revision" and . != "agent:blocked" and . != "agent:do-not-pick" and . != "agent:approved")) | not
-      ) | select(
-        ((.labels | map(.name) | any(. == $ML))
-         or (.labels | map(.name) | any(test("^model:")) | not))
-      )] | sort_by(.number) | .[0].number // empty')
+  # --- Onboarding gate ---------------------------------------------
+  # If context files are empty, make sure an onboarding issue exists and
+  # work ONLY that until it's resolved. Regular issues stay parked.
+  IS_ONBOARDING_TASK="false"
+  if repo_needs_onboarding; then
+    ensure_onboarding_issue
+  fi
+  ONBOARDING_NUM=$(gh issue list --label "$ONBOARDING_LABEL" --state open --json number -q '.[0].number' 2>/dev/null || echo "")
+
+  if [[ -n "$ONBOARDING_NUM" && "$ONBOARDING_NUM" != "null" ]]; then
+    # Is the onboarding issue already claimed by some agent?
+    OB_CLAIM_COUNT=$(gh issue view "$ONBOARDING_NUM" --json labels \
+      -q '[.labels[].name | select(startswith("agent:") and . != "agent:onboarding" and . != "agent:needs-revision" and . != "agent:blocked" and . != "agent:do-not-pick" and . != "agent:approved")] | length' 2>/dev/null || echo 0)
+    if (( OB_CLAIM_COUNT > 0 )); then
+      log "Onboarding #$ONBOARDING_NUM in progress by another agent. Waiting."
+      sleep "$POLL_INTERVAL"; continue
+    fi
+    ISSUE_NUM="$ONBOARDING_NUM"
+    IS_ONBOARDING_TASK="true"
   else
-    ISSUE_NUM=$(echo "$ISSUE_JSON" | jq -r --arg ML "$MODEL_LABEL" '
-      [.[] | select(
-        (.labels | map(.name) | any(test("^agent:") and . != "agent:needs-revision" and . != "agent:blocked" and . != "agent:do-not-pick" and . != "agent:approved")) | not
-      ) | select(
-        .labels | map(.name) | any(. == $ML)
-      )] | sort_by(.number) | .[0].number // empty')
+    # --- Normal issue selection ------------------------------------
+    ISSUE_JSON=$(gh issue list --label "agent-ready" --state open --json number,title,body,labels --limit 50 2>/dev/null || echo "[]")
+    # Sonnet (the default model) also claims issues that have NO model:* label
+    # at all — matching the webhook's "default to sonnet" behavior. Haiku and
+    # Opus only claim issues that explicitly request them.
+    if [[ "$MODEL" == "sonnet" ]]; then
+      ISSUE_NUM=$(echo "$ISSUE_JSON" | jq -r --arg ML "$MODEL_LABEL" '
+        [.[] | select(
+          (.labels | map(.name) | any(test("^agent:") and . != "agent:needs-revision" and . != "agent:blocked" and . != "agent:do-not-pick" and . != "agent:approved")) | not
+        ) | select(
+          ((.labels | map(.name) | any(. == $ML))
+           or (.labels | map(.name) | any(test("^model:")) | not))
+        )] | sort_by(.number) | .[0].number // empty')
+    else
+      ISSUE_NUM=$(echo "$ISSUE_JSON" | jq -r --arg ML "$MODEL_LABEL" '
+        [.[] | select(
+          (.labels | map(.name) | any(test("^agent:") and . != "agent:needs-revision" and . != "agent:blocked" and . != "agent:do-not-pick" and . != "agent:approved")) | not
+        ) | select(
+          .labels | map(.name) | any(. == $ML)
+        )] | sort_by(.number) | .[0].number // empty')
+    fi
   fi
 
   if [[ -z "$ISSUE_NUM" ]]; then
     sleep "$POLL_INTERVAL"; continue
   fi
 
-  log "Attempting to claim #$ISSUE_NUM"
-  if ! gh issue edit "$ISSUE_NUM" --add-label "$CLAIM_LABEL" --remove-label "agent-ready" 2>&1 | tee /tmp/claim.log; then
-    log "Claim failed for #$ISSUE_NUM."; sleep 10; continue
+  log "Attempting to claim #$ISSUE_NUM (onboarding=$IS_ONBOARDING_TASK)"
+  # Claim. Onboarding issues keep agent-ready (the gate finds them by the
+  # agent:onboarding label); regular issues drop agent-ready on claim.
+  if [[ "$IS_ONBOARDING_TASK" == "true" ]]; then
+    gh issue edit "$ISSUE_NUM" --add-label "$CLAIM_LABEL" 2>&1 | tee /tmp/claim.log || { log "Claim failed for #$ISSUE_NUM."; sleep 10; continue; }
+  else
+    if ! gh issue edit "$ISSUE_NUM" --add-label "$CLAIM_LABEL" --remove-label "agent-ready" 2>&1 | tee /tmp/claim.log; then
+      log "Claim failed for #$ISSUE_NUM."; sleep 10; continue
+    fi
   fi
 
-  CURRENT_CLAIMS=$(gh issue view "$ISSUE_NUM" --json labels -q '[.labels[].name | select(startswith("agent:") and . != "agent:needs-revision" and . != "agent:blocked" and . != "agent:do-not-pick")]')
-  CLAIM_COUNT=$(echo "$CURRENT_CLAIMS" | jq 'length')
-  if (( CLAIM_COUNT > 1 )); then
-    log "Race detected. Yielding."
+  # Deterministic race resolution: let concurrent claims land, then the
+  # lexicographically-smallest claim label wins. Everyone else yields by
+  # removing only their own claim label. The winner never yields, so the
+  # issue is never orphaned (the old bug: both racers yielded → no labels).
+  sleep 3
+  CLAIM_LIST=$(gh issue view "$ISSUE_NUM" --json labels \
+    -q '[.labels[].name | select(startswith("agent:") and . != "agent:onboarding" and . != "agent:needs-revision" and . != "agent:blocked" and . != "agent:do-not-pick" and . != "agent:approved")] | sort | .[]' 2>/dev/null || echo "$CLAIM_LABEL")
+  WINNER=$(echo "$CLAIM_LIST" | head -1)
+  if [[ -n "$WINNER" && "$WINNER" != "$CLAIM_LABEL" ]]; then
+    log "Race on #$ISSUE_NUM — $WINNER won, yielding."
     gh issue edit "$ISSUE_NUM" --remove-label "$CLAIM_LABEL" 2>/dev/null || true
     sleep 30; continue
   fi
@@ -236,7 +301,31 @@ while true; do
 
   write_status "planning" "$ISSUE_NUM" "reading issue and planning"
 
-  TASK_PROMPT="You are $NAME $EMOJI on $MODEL. Identity in ~/.agent-identity.json. Claimed issue #$ISSUE_NUM ($ISSUE_TITLE). Branch will be $BRANCH. Read CLAUDE.md, COMMENT_STYLE.md, CONTEXT.md, ARCHITECTURE.md, then implement: post a plan, create branch, code, tests, PR. Body must include 'Closes #$ISSUE_NUM'."
+  if [[ "$IS_ONBOARDING_TASK" == "true" ]]; then
+    write_status "planning" "$ISSUE_NUM" "onboarding: studying the repo"
+    TASK_PROMPT="You are $NAME $EMOJI on $MODEL. Identity in ~/.agent-identity.json — read it first.
+
+You claimed issue #$ISSUE_NUM — the fleet ONBOARDING task. Your job is to study this repo and write three context files from scratch, then open a PR.
+
+> Do NOT apply CLAUDE.md's 'do not start regular work' rule to yourself. That rule blocks regular tasks when the context files are empty — but THIS task is the one that fills them. Ignore it for this issue.
+
+Study the repo directly: read source files, package.json / go.mod / requirements.txt, the directory tree, and any README. Then write:
+
+- CONTEXT.md — what the project does and who it's for; stack (languages, frameworks, db, test framework, package manager); copy-pasteable install/run/test/lint/format/type-check commands; key directories; conventions; gotchas.
+- ARCHITECTURE.md — how the major pieces communicate (data flow, API boundaries, events); why the top-level split exists; external integrations; anything that looks odd but is intentional. Mark uncertainty with 'OPEN QUESTION: ...'.
+- DESIGN.md — if there's UI: frameworks, tokens (colors/spacing/type/breakpoints), patterns to preserve, inconsistencies to resolve, a proposed contract. If no UI: say so in one sentence and note any constraints.
+
+Every file must have its '<!-- explorer: empty -->' marker replaced with real, thorough content — no placeholders.
+
+Steps:
+1. git checkout -b $BRANCH && git push -u origin $BRANCH
+2. Write all three files with real content
+3. Open a PR titled 'Initial agent fleet context' — body summarises findings and open questions
+4. Add label agent:do-not-pick to the PR
+5. Comment on this issue with the PR link. The human merges the PR, which closes this issue and unblocks regular work."
+  else
+    TASK_PROMPT="You are $NAME $EMOJI on $MODEL. Identity in ~/.agent-identity.json. Claimed issue #$ISSUE_NUM ($ISSUE_TITLE). Branch will be $BRANCH. Read CLAUDE.md, COMMENT_STYLE.md, CONTEXT.md, ARCHITECTURE.md, then implement: post a plan, create branch, code, tests, PR. Body must include 'Closes #$ISSUE_NUM'."
+  fi
 
   task_log="/var/log/agent-task-$ISSUE_NUM.log"
   task_json="/tmp/claude-task-$ISSUE_NUM.json"
@@ -256,8 +345,16 @@ while true; do
     refresh_token
     PR_NUM=$(gh pr list --head "$BRANCH" --json number -q '.[0].number' 2>/dev/null || echo "")
     if [[ -z "$PR_NUM" ]]; then
-      gh issue comment "$ISSUE_NUM" --body "$SIGNOFF ran out of budget without opening a PR. Unclaiming." 2>/dev/null || true
-      gh issue edit "$ISSUE_NUM" --remove-label "$CLAIM_LABEL" --add-label "agent-ready" 2>/dev/null || true
+      if [[ "$IS_ONBOARDING_TASK" == "true" ]]; then
+        # Onboarding: just drop our claim. The issue keeps agent-ready +
+        # agent:onboarding, so the gate re-offers it next cycle. Don't
+        # re-add agent-ready (it was never removed for onboarding).
+        gh issue comment "$ISSUE_NUM" --body "$SIGNOFF couldn't complete onboarding this run. Releasing for retry." 2>/dev/null || true
+        gh issue edit "$ISSUE_NUM" --remove-label "$CLAIM_LABEL" 2>/dev/null || true
+      else
+        gh issue comment "$ISSUE_NUM" --body "$SIGNOFF ran out of budget without opening a PR. Unclaiming." 2>/dev/null || true
+        gh issue edit "$ISSUE_NUM" --remove-label "$CLAIM_LABEL" --add-label "agent-ready" 2>/dev/null || true
+      fi
     fi
   fi
 

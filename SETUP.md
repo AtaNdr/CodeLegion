@@ -122,12 +122,23 @@ The **Configure App** button in the wizard is your launchpad — open it first s
 
 ---
 
+## First run — automatic onboarding
+
+The very first time an agent runs in a freshly-templated repo, it does **not** jump straight into your issue. The injected `CONTEXT.md` / `ARCHITECTURE.md` / `DESIGN.md` ship with an empty-placeholder marker, and the agent contract (`CLAUDE.md`) halts regular work until they're filled with real project context.
+
+So on first run the agent:
+1. Auto-creates an `agent:onboarding` issue
+2. Reads your whole repo and writes real CONTEXT/ARCHITECTURE/DESIGN content
+3. Opens a PR titled **"Initial agent fleet context"** (labelled `agent:do-not-pick`)
+
+**Review and merge that PR.** Once it merges, the markers are gone and agents work regular issues normally. This happens once per repo. If you'd rather skip it, fill those three files with real content yourself (remove the `<!-- explorer: empty -->` line from each) before opening your first issue.
+
 ## Verify it works
 
 1. Open an issue in your target repo using the **Agent Task** template (the wizard injected this).
 2. Make sure it has the `agent-ready` label. **`model:sonnet` is the default** — you only need a `model:*` label if you want to route to `haiku` (trivial fixes) or `opus` (hard problems).
 3. Within ~3 minutes a VM spawns in your Azure RG. The Flow 2 dashboard shows it.
-4. The agent claims the issue, posts a plan, codes, opens a PR.
+4. **First run:** the agent opens the onboarding PR described above — merge it, then your issue gets worked on the next cycle. **After onboarding:** the agent claims the issue, posts a plan, codes, opens a PR.
 
 If something stalls:
 - Check the agent's **Log** button in the dashboard.
