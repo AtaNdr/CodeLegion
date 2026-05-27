@@ -34,6 +34,46 @@ function resolveConfirm(answer) {
   if (resolver) resolver(answer);
 }
 
+// Toast notifications. showToast(msg, {type, duration}) → handle with
+// update()/dismiss(). type: info | success | error | loading. A loading
+// toast persists (duration ignored) until you dismiss or update it.
+function showToast(message, { type = 'info', duration = 4000 } = {}) {
+  let container = document.getElementById('toast-container');
+  if (!container) {
+    container = document.createElement('div');
+    container.id = 'toast-container';
+    document.body.appendChild(container);
+  }
+  const el = document.createElement('div');
+  const spinner = document.createElement('span');
+  const text = document.createElement('span');
+  function render(msg, t) {
+    el.className = 'toast toast-' + t + (el.classList.contains('show') ? ' show' : '');
+    spinner.className = 'spinner';
+    if (t === 'loading') { if (!spinner.parentNode) el.insertBefore(spinner, el.firstChild); }
+    else if (spinner.parentNode) spinner.remove();
+    text.textContent = msg;
+  }
+  el.appendChild(text);
+  render(message, type);
+  container.appendChild(el);
+  requestAnimationFrame(() => el.classList.add('show'));
+
+  let timer = null;
+  const dismiss = () => {
+    if (timer) clearTimeout(timer);
+    el.classList.remove('show');
+    setTimeout(() => el.remove(), 300);
+  };
+  const arm = (d, t) => { if (t !== 'loading' && d) timer = setTimeout(dismiss, d); };
+  arm(duration, type);
+
+  return {
+    update(msg, t = 'info', d = 4000) { if (timer) clearTimeout(timer); render(msg, t); arm(d, t); },
+    dismiss,
+  };
+}
+
 async function postJson(url, body) {
   const r = await fetch(url, {
     method: 'POST',
@@ -256,6 +296,11 @@ async function doSelfUpdate() {
   catch (e) { alert('Self-update failed: ' + e.message); }
 }
 
+function summarizeResults(results) {
+  const counts = (results || []).reduce((acc, x) => { acc[x.action] = (acc[x.action] || 0) + 1; return acc; }, {});
+  return Object.entries(counts).map(([k, v]) => k + ' ' + v).join(', ') || 'no changes';
+}
+
 async function doInjectRepo() {
   const ok = await showConfirm({
     title: 'Inject / update repo files',
@@ -263,12 +308,14 @@ async function doInjectRepo() {
     okLabel: 'Inject',
   });
   if (!ok) return;
+  const t = showToast('Injecting repo files…', { type: 'loading' });
   try {
     const r = await postAdmin('/admin/inject-repo');
-    const summary = (r.results || [])
-      .reduce((acc, x) => { acc[x.action] = (acc[x.action] || 0) + 1; return acc; }, {});
-    alert('Repo inject done: ' + (Object.entries(summary).map(([k, v]) => k + ' ' + v).join(', ') || 'no changes'));
-  } catch (e) { alert('Inject failed: ' + e.message); }
+    t.update('Repo files injected: ' + summarizeResults(r.results), 'success', 5000);
+    setTimeout(() => location.reload(), 2500);  // refresh check status
+  } catch (e) {
+    t.update('Inject failed: ' + e.message, 'error', 8000);
+  }
 }
 
 async function doCleanRepo() {
@@ -279,12 +326,14 @@ async function doCleanRepo() {
     danger: true,
   });
   if (!ok) return;
+  const t = showToast('Cleaning repo files…', { type: 'loading' });
   try {
     const r = await postAdmin('/admin/clean-repo');
-    const summary = (r.results || [])
-      .reduce((acc, x) => { acc[x.action] = (acc[x.action] || 0) + 1; return acc; }, {});
-    alert('Repo clean done: ' + (Object.entries(summary).map(([k, v]) => k + ' ' + v).join(', ') || 'no changes'));
-  } catch (e) { alert('Clean failed: ' + e.message); }
+    t.update('Repo files cleaned: ' + summarizeResults(r.results), 'success', 5000);
+    setTimeout(() => location.reload(), 2500);
+  } catch (e) {
+    t.update('Clean failed: ' + e.message, 'error', 8000);
+  }
 }
 
 // Persist <details data-persist> open/closed state across reloads so the
