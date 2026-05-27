@@ -254,14 +254,25 @@ Be thorough — every future agent depends on these files to understand the code
 OBEOF
 )
 
-  url=$(gh issue create \
+  # The controller normally creates this at inject time; this is a fallback.
+  gh issue create \
     --title "Onboard the fleet: write CONTEXT.md, ARCHITECTURE.md, DESIGN.md" \
     --label "agent-ready" --label "$ONBOARDING_LABEL" \
-    --body "$body" 2>/dev/null) || { log "Failed to create onboarding issue" >&2; echo ""; return 1; }
+    --body "$body" >/dev/null 2>&1 || log "onboarding create returned nonzero (may already exist)" >&2
 
-  num=$(echo "$url" | grep -oE '[0-9]+$' | tail -1)
-  log "Created onboarding issue #$num" >&2
-  echo "$num"
+  # Resolve the number by re-querying the label search with retries — robust
+  # against GitHub indexing lag right after creation (don't parse create output).
+  local i
+  for i in 1 2 3 4 5; do
+    sleep 2
+    num=$(gh issue list --label "$ONBOARDING_LABEL" --state open --json number -q '.[0].number' 2>/dev/null || echo "")
+    if [[ -n "$num" && "$num" != "null" ]]; then
+      log "Resolved onboarding issue #$num" >&2
+      echo "$num"; return 0
+    fi
+  done
+  log "Could not resolve onboarding issue after creating" >&2
+  echo ""
 }
 
 # ---- Script self-update ----------------------------------------

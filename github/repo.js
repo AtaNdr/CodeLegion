@@ -256,6 +256,100 @@ function adminPermError() {
     '3. If installed on an organization, an org owner must approve the new permissions — not just you. They\'ll see the same banner.';
 }
 
+// ---- Onboarding issue (controller-orchestrated) --------------------------
+// The controller creates the onboarding issue deterministically (it has
+// reliable GitHub API access), instead of relying on the agent's bash loop
+// to self-create it. The agent then just claims and executes.
+
+export const ONBOARDING_LABEL = 'agent:onboarding';
+
+const ONBOARDING_BODY = `## What this is
+
+The three agent context files (\`CONTEXT.md\`, \`ARCHITECTURE.md\`, \`DESIGN.md\`) are missing or still contain the \`<!-- explorer: empty -->\` placeholder. **No agent can do regular work until these are filled in — all regular work is halted until this issue is closed.**
+
+You are the agent responsible for this. Do not block or unclaim it. Do NOT apply CLAUDE.md's "do not start regular work" rule to yourself — that rule protects regular tasks; THIS task is the one that fixes the gate.
+
+## Your task
+
+Read every source file in the repo — don't skim. Read \`package.json\` / \`go.mod\` / \`requirements.txt\` / equivalent, the directory tree, and any README. Then write these three files from scratch, replacing the \`<!-- explorer: empty -->\` marker in each with real, thorough content.
+
+### CONTEXT.md — how to work in this repo
+- One-paragraph description of what the project does and who it's for
+- Stack: language(s), framework(s), database, test framework, package manager — with versions if visible
+- Copy-pasteable commands for install / run / test / lint / format / type-check — verified to work
+- Key directories — one line each
+- Conventions, gotchas, how to run locally end-to-end
+
+### ARCHITECTURE.md — the *why*, not just the *what*
+- How the major pieces communicate (data flow, API boundaries, events)
+- Why the top-level split exists; external integrations
+- Anything that looks odd but is intentional. Mark uncertainty with "OPEN QUESTION: ..."
+
+### DESIGN.md — the UI contract
+- If UI: frameworks, tokens (colours/spacing/type/breakpoints), patterns to preserve, inconsistencies to resolve, a proposed contract, open questions
+- If no UI: say so in one sentence and note any constraints
+
+## Acceptance criteria
+
+- [ ] \`CONTEXT.md\` has no \`<!-- explorer: empty -->\` marker and contains real, project-specific content
+- [ ] \`ARCHITECTURE.md\` has no marker and explains the *why*
+- [ ] \`DESIGN.md\` has no marker and documents the UI contract or states there's no UI
+- [ ] A PR titled "Initial agent fleet context" is open, labelled \`agent:do-not-pick\`
+
+## Steps
+
+1. Create a branch and push it
+2. Read the entire codebase before writing anything
+3. Write all three files — real content, no placeholders
+4. Open the PR titled "Initial agent fleet context"; add label \`agent:do-not-pick\`
+5. Comment on this issue with the PR link
+
+Be thorough — every future agent depends on these files.`;
+
+export async function findOpenOnboardingIssue() {
+  const o = owner();
+  const r = repo();
+  const resp = await ghFetch(`/repos/${o}/${r}/issues?labels=${encodeURIComponent(ONBOARDING_LABEL)}&state=open&per_page=1`);
+  if (!resp.ok) return null;
+  const arr = await resp.json();
+  // /issues also returns PRs; filter to real issues.
+  const issue = (arr || []).find(x => !x.pull_request);
+  return issue ? issue.number : null;
+}
+
+export async function repoNeedsOnboarding() {
+  for (const f of ['CONTEXT.md', 'ARCHITECTURE.md', 'DESIGN.md']) {
+    let file;
+    try { file = await getRepoFile(f); } catch { file = null; }
+    if (!file) return true;
+    const content = Buffer.from(file.content || '', 'base64').toString('utf8');
+    if (content.includes('<!-- explorer: empty -->')) return true;
+  }
+  return false;
+}
+
+export async function ensureOnboardingIssue() {
+  const existing = await findOpenOnboardingIssue();
+  if (existing) return { number: existing, created: false };
+  const o = owner();
+  const r = repo();
+  const resp = await ghFetch(`/repos/${o}/${r}/issues`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      title: 'Onboard the fleet: write CONTEXT.md, ARCHITECTURE.md, DESIGN.md',
+      labels: ['agent-ready', ONBOARDING_LABEL],
+      body: ONBOARDING_BODY,
+    }),
+  });
+  if (!resp.ok) {
+    const text = await resp.text();
+    throw new Error(`create onboarding issue failed: ${resp.status} ${text}`);
+  }
+  const data = await resp.json();
+  return { number: data.number, created: true };
+}
+
 export async function getBranchProtection(branch = 'main') {
   const o = owner();
   const r = repo();

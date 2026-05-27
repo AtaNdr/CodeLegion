@@ -5,7 +5,7 @@ import crypto from 'crypto';
 import { config } from '../config.js';
 import { provisionNetwork, resourceNames } from '../azure/provision.js';
 import { setAppSettings } from '../azure/app-settings.js';
-import { injectFiles, syncLabels, setBranchProtection } from '../github/repo.js';
+import { injectFiles, syncLabels, setBranchProtection, repoNeedsOnboarding, ensureOnboardingIssue } from '../github/repo.js';
 import { clearTokenCache } from '../github/app.js';
 
 const generateSecret = () => crypto.randomBytes(32).toString('hex');
@@ -51,10 +51,29 @@ export const fixers = {
     const created = results.filter(r => r.action === 'created').length;
     const updated = results.filter(r => r.action === 'updated').length;
     const errors = results.filter(r => r.action === 'error');
-    if (errors.length) {
-      return { status: 'yellow', detail: `created ${created}, updated ${updated}, ${errors.length} errors: ${errors[0].error}` };
+
+    // Labels must exist before the onboarding issue's labels will stick.
+    await syncLabels().catch(() => {});
+
+    // If the (just-injected) context files carry the empty marker, create
+    // the onboarding issue HERE, from the controller — deterministic, with
+    // the right labels. Its creation fires a webhook that spins an agent,
+    // which then just claims and executes. No reliance on the agent's bash
+    // loop to self-create the issue.
+    let onboardingNote = '';
+    try {
+      if (await repoNeedsOnboarding()) {
+        const ob = await ensureOnboardingIssue();
+        onboardingNote = ob.created ? ` · created onboarding issue #${ob.number}` : ` · onboarding issue #${ob.number} already open`;
+      }
+    } catch (e) {
+      onboardingNote = ` · onboarding issue not created: ${e.message}`;
     }
-    return { status: 'green', detail: `created ${created}, updated ${updated}, ${results.length - created - updated} unchanged` };
+
+    if (errors.length) {
+      return { status: 'yellow', detail: `created ${created}, updated ${updated}, ${errors.length} errors: ${errors[0].error}${onboardingNote}` };
+    }
+    return { status: 'green', detail: `created ${created}, updated ${updated}, ${results.length - created - updated} unchanged${onboardingNote}` };
   },
 
   async labels() {

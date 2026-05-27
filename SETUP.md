@@ -124,14 +124,14 @@ The **Configure App** button in the wizard is your launchpad — open it first s
 
 ## First run — automatic onboarding
 
-The very first time an agent runs in a freshly-templated repo, it does **not** jump straight into your issue. The injected `CONTEXT.md` / `ARCHITECTURE.md` / `DESIGN.md` ship with an empty-placeholder marker, and the agent contract (`CLAUDE.md`) halts regular work until they're filled with real project context.
+The injected `CONTEXT.md` / `ARCHITECTURE.md` / `DESIGN.md` ship with an empty-placeholder marker, and the agent contract (`CLAUDE.md`) halts regular work until they're filled with real project context.
 
-So on first run the agent:
-1. Auto-creates an `agent:onboarding` issue
+To make this reliable, **the controller creates the onboarding issue itself** when you click **Inject / update repo files** (if those files still carry the marker). That issue's creation fires a webhook that spins a sonnet agent, which then:
+1. Claims the `agent:onboarding` issue
 2. Reads your whole repo and writes real CONTEXT/ARCHITECTURE/DESIGN content
 3. Opens a PR titled **"Initial agent fleet context"** (labelled `agent:do-not-pick`)
 
-**Review and merge that PR.** Once it merges, the markers are gone and agents work regular issues normally. This happens once per repo. If you'd rather skip it, fill those three files with real content yourself (remove the `<!-- explorer: empty -->` line from each) before opening your first issue.
+**Review and merge that PR.** Once it merges, the markers are gone and agents work regular issues normally. This happens once per repo. If you'd rather skip it, fill those three files with real content yourself (remove the `<!-- explorer: empty -->` line from each) before injecting — the controller then won't create the onboarding issue.
 
 ## Verify it works
 
