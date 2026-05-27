@@ -1,6 +1,6 @@
 {
   "name": "codelegion",
-  "version": "2.0.9",
+  "version": "2.0.10",
   "description": "Self-bootstrapping fleet of Claude Code agents that pick up GitHub issues and open PRs. Deploy as an Azure Web App; it provisions everything else.",
   "type": "module",
   "main": "index.js",
