@@ -182,18 +182,86 @@ repo_needs_onboarding() {
   return 1
 }
 
+# Ensure exactly one open onboarding issue exists. Echoes its number on
+# stdout (empty on failure). All diagnostics go to stderr so they don't
+# pollute the captured number.
 ensure_onboarding_issue() {
   local existing
   existing=$(gh issue list --label "$ONBOARDING_LABEL" --state open --json number -q '.[0].number' 2>/dev/null || echo "")
   if [[ -n "$existing" && "$existing" != "null" ]]; then
-    return 0
+    echo "$existing"; return 0
   fi
-  log "Creating onboarding issue"
-  gh issue create \
+  log "Creating onboarding issue" >&2
+
+  local body url num
+  body=$(cat <<'OBEOF'
+## What this is
+
+The three agent context files (`CONTEXT.md`, `ARCHITECTURE.md`, `DESIGN.md`) are missing or still contain the `<!-- explorer: empty -->` placeholder. **No agent can do regular work until these are filled in — all regular work is halted until this issue is closed.**
+
+You are the agent responsible for this. Do not block or unclaim it. Do NOT apply CLAUDE.md's "do not start regular work" rule to yourself — that rule exists to protect regular tasks; THIS task is the one that fixes the gate.
+
+## Your task
+
+Read every source file in the repo — don't skim. Read `package.json` / `go.mod` / `requirements.txt` / equivalent, the directory tree, and any README. Then write these three files from scratch, replacing the `<!-- explorer: empty -->` marker in each with real, thorough content.
+
+### CONTEXT.md — how to work in this repo
+- One-paragraph description of what the project does and who it's for
+- Stack: language(s), framework(s), database, test framework, package manager — with versions if visible
+- Copy-pasteable commands for: install, run locally, run tests, lint, format, type-check — verified to actually work
+- Key directories — one line each on what lives there
+- Conventions the codebase follows (naming, file organisation, patterns)
+- Gotchas: anything that would surprise a new contributor
+- How to run the project locally end-to-end
+
+### ARCHITECTURE.md — the *why*, not just the *what*
+- How the major pieces communicate (data flow, API boundaries, event paths)
+- Why the top-level split exists (not just what the folders are, but why they're separate)
+- External integrations and what they're used for
+- Anything that looks odd or over-engineered but is intentional — explain it
+- Anywhere the architecture is under stress or in transition
+- Mark uncertainty with "OPEN QUESTION: ..."
+
+### DESIGN.md — the UI contract
+If the project has UI:
+- Frameworks/libraries (component library, CSS approach, animation)
+- Design tokens in use: colours, spacing scale, typography, breakpoints — actual values
+- Patterns that are consistent and must be preserved
+- Patterns that are inconsistent and need a decision
+- A proposed contract: declarative rules going forward (e.g. "all buttons use `<Button>`, never a raw `<button>`")
+- Open questions for the human
+
+If no UI exists: say so in one sentence and note any constraints affecting future UI work.
+
+## Acceptance criteria
+
+- [ ] `CONTEXT.md` has no `<!-- explorer: empty -->` marker and contains real, project-specific content
+- [ ] `ARCHITECTURE.md` has no marker and explains the *why*
+- [ ] `DESIGN.md` has no marker and either documents the UI contract or clearly states there's no UI
+- [ ] A PR titled "Initial agent fleet context" is open, labelled `agent:do-not-pick`
+- [ ] This issue is referenced from the PR and closes when the PR merges
+
+## Steps
+
+1. Create a branch and push it
+2. Read the entire codebase before writing anything
+3. Write all three files — real content, no placeholders, no filler
+4. Open the PR titled "Initial agent fleet context"; body summarises findings and lists open questions
+5. Add label `agent:do-not-pick` to the PR
+6. Comment on this issue with the PR link
+
+Be thorough — every future agent depends on these files to understand the codebase.
+OBEOF
+)
+
+  url=$(gh issue create \
     --title "Onboard the fleet: write CONTEXT.md, ARCHITECTURE.md, DESIGN.md" \
     --label "agent-ready" --label "$ONBOARDING_LABEL" \
-    --body "The three context files are missing or still contain the \`<!-- explorer: empty -->\` placeholder. No agent can do regular work until they're filled. The agent that picks this up should read the whole repo and write CONTEXT.md (what/stack/commands/conventions), ARCHITECTURE.md (why the structure, integrations), and DESIGN.md (UI contract or 'no UI'), then open a PR titled 'Initial agent fleet context' labelled \`agent:do-not-pick\`." \
-    2>/dev/null || log "Failed to create onboarding issue"
+    --body "$body" 2>/dev/null) || { log "Failed to create onboarding issue" >&2; echo ""; return 1; }
+
+  num=$(echo "$url" | grep -oE '[0-9]+$' | tail -1)
+  log "Created onboarding issue #$num" >&2
+  echo "$num"
 }
 
 # ---- Script self-update ----------------------------------------
@@ -262,15 +330,27 @@ while true; do
   git pull --quiet 2>/dev/null || true
 
   # --- Onboarding gate ---------------------------------------------
-  # If context files are empty, make sure an onboarding issue exists and
-  # work ONLY that until it's resolved. Regular issues stay parked.
+  # If context files are empty, work ONLY the onboarding issue. CRITICAL:
+  # when onboarding is needed we must NEVER fall through to claim a regular
+  # issue — otherwise the user's issue gets claimed-and-abandoned while the
+  # repo is un-onboarded. ensure_onboarding_issue returns the issue number
+  # directly (no lag-prone label-search round trip).
   IS_ONBOARDING_TASK="false"
+  NEEDS_ONBOARDING="false"
   if repo_needs_onboarding; then
-    ensure_onboarding_issue
+    NEEDS_ONBOARDING="true"
+    ONBOARDING_NUM=$(ensure_onboarding_issue)
+  else
+    ONBOARDING_NUM=$(gh issue list --label "$ONBOARDING_LABEL" --state open --json number -q '.[0].number' 2>/dev/null || echo "")
   fi
-  ONBOARDING_NUM=$(gh issue list --label "$ONBOARDING_LABEL" --state open --json number -q '.[0].number' 2>/dev/null || echo "")
 
-  if [[ -n "$ONBOARDING_NUM" && "$ONBOARDING_NUM" != "null" ]]; then
+  if [[ "$NEEDS_ONBOARDING" == "true" || ( -n "$ONBOARDING_NUM" && "$ONBOARDING_NUM" != "null" ) ]]; then
+    if [[ -z "$ONBOARDING_NUM" || "$ONBOARDING_NUM" == "null" ]]; then
+      # Onboarding needed but we couldn't resolve/create the issue this
+      # cycle. Wait and retry — do NOT claim regular issues.
+      log "Onboarding needed but onboarding issue unresolved this cycle. Waiting."
+      sleep "$POLL_INTERVAL"; continue
+    fi
     # Is the onboarding issue already claimed by some agent?
     OB_CLAIM_COUNT=$(gh issue view "$ONBOARDING_NUM" --json labels \
       -q '[.labels[].name | select(startswith("agent:") and . != "agent:onboarding" and . != "agent:needs-revision" and . != "agent:blocked" and . != "agent:do-not-pick" and . != "agent:approved")] | length' 2>/dev/null || echo 0)
