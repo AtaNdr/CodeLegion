@@ -183,6 +183,15 @@ The push of the tag triggers the Release workflow, which creates a GitHub Releas
 
 Click **Update now** in the dashboard footer (only shown when a newer release exists), or click **Update** at the bottom of the page anytime. If you deployed via external git (3a above), Azure pulls the latest from `main` and restarts. If you deployed via zip, the Update button just restarts — push a new zip yourself first.
 
+Confirm the new version is actually running: the footer and the `CODELEGION_VERSION` App Setting should match the latest release tag. If the footer still shows the old version after ~2 minutes, the deploy didn't take (check Deployment Center).
+
+### How agent VMs get updates
+
+The controller serves the agent shell scripts at `/scripts/*`, and each VM downloads them **once** via cloud-init at creation time. Two things keep long-lived VMs current:
+
+- **Self-update:** every idle poll cycle, the agent re-fetches its scripts from the controller and re-execs `agent-loop.sh` if it changed (never mid-task). So after you update the controller, running agents pick up the new agent code within a poll interval — no action needed.
+- **One-time catch:** a VM created *before* the self-update feature existed won't have the self-update code, so it can't pull it. **If an agent misbehaves right after an update, delete that VM** (don't just Sleep it) from the dashboard — the next issue spins a fresh one with current scripts. After that, self-update keeps it current automatically.
+
 ---
 
 ## Tearing it down

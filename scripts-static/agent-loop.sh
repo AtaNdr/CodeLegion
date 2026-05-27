@@ -196,11 +196,51 @@ ensure_onboarding_issue() {
     2>/dev/null || log "Failed to create onboarding issue"
 }
 
+# ---- Script self-update ----------------------------------------
+# cloud-init only downloads these scripts once, at VM creation. A
+# deallocate→start cycle does NOT re-run cloud-init, so a long-lived VM
+# would keep running stale agent code forever. To let fixes propagate
+# without delete+recreate, re-fetch the scripts from the controller while
+# idle; if agent-loop.sh changed, re-exec into the new version.
+#
+# Only ever runs between tasks (never mid-work), so a re-exec can't
+# interrupt an in-flight issue.
+self_update_scripts() {
+  local base="${SCRIPTS_BASE:-}"
+  [[ -z "$base" ]] && return 0
+
+  local s tmp
+  for s in refresh-gh-token.sh agent-bootstrap.sh; do
+    tmp=$(mktemp)
+    if curl -fsSL --max-time 15 "$base/$s" -o "$tmp" 2>/dev/null && [[ -s "$tmp" ]]; then
+      if ! cmp -s "$tmp" "/usr/local/bin/$s"; then
+        log "Updating /usr/local/bin/$s from controller"
+        sudo cp "$tmp" "/usr/local/bin/$s" && sudo chmod +x "/usr/local/bin/$s"
+      fi
+    fi
+    rm -f "$tmp"
+  done
+
+  # agent-loop.sh last: if it changed, swap and re-exec into the new copy.
+  tmp=$(mktemp)
+  if curl -fsSL --max-time 15 "$base/agent-loop.sh" -o "$tmp" 2>/dev/null && [[ -s "$tmp" ]]; then
+    if ! cmp -s "$tmp" /usr/local/bin/agent-loop.sh; then
+      log "agent-loop.sh changed upstream — updating and re-execing"
+      remote_log "info" "self-updating agent-loop.sh and re-execing"
+      sudo cp "$tmp" /usr/local/bin/agent-loop.sh && sudo chmod +x /usr/local/bin/agent-loop.sh
+      rm -f "$tmp"
+      exec /usr/local/bin/agent-loop.sh
+    fi
+  fi
+  rm -f "$tmp"
+}
+
 # ---- Main loop -------------------------------------------------
 log "Online. Model: $MODEL. Polling every ${POLL_INTERVAL}s."
 write_status "starting"
 remote_log "info" "online model=$MODEL idle_timeout=${IDLE_TIMEOUT}s"
 refresh_token
+self_update_scripts  # adopt any newer scripts before doing anything
 
 # Background heartbeat (every 10s) — pushes any unsynced activity lines.
 (
@@ -209,6 +249,7 @@ refresh_token
 
 while true; do
   refresh_token
+  self_update_scripts  # re-check for script updates each idle cycle
   write_status "idle"
 
   if (( IDLE_TIMEOUT > 0 )); then
