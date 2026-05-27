@@ -337,6 +337,14 @@ while true; do
   ISSUE_TITLE=$(gh issue view "$ISSUE_NUM" --json title -q .title)
   write_status "claimed" "$ISSUE_NUM" "claimed: $ISSUE_TITLE"
 
+  # Always leave a comment on claim — even if Claude later crashes or runs out
+  # of budget, the issue shows who picked it up and what they intend to do.
+  if [[ "$IS_ONBOARDING_TASK" == "true" ]]; then
+    gh issue comment "$ISSUE_NUM" --body "$EMOJI **$NAME** ($MODEL) claimed this as the **onboarding task** — the repo's context files are still empty, so I'll study the codebase and draft CONTEXT/ARCHITECTURE/DESIGN, then open a PR. $SIGNOFF" 2>/dev/null || true
+  else
+    gh issue comment "$ISSUE_NUM" --body "$EMOJI **$NAME** ($MODEL) picked this up. Reading the repo and the issue now to decide whether to implement directly or propose triage — my decision and reasoning follow in the next comment. $SIGNOFF" 2>/dev/null || true
+  fi
+
   SLUG=$(echo "$ISSUE_TITLE" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/--*/-/g' | sed 's/^-\|-$//g' | cut -c1-40)
   BRANCH="$NAME_LOWER/issue-$ISSUE_NUM-$SLUG"
 
@@ -365,7 +373,19 @@ Steps:
 4. Add label agent:do-not-pick to the PR
 5. Comment on this issue with the PR link. The human merges the PR, which closes this issue and unblocks regular work."
   else
-    TASK_PROMPT="You are $NAME $EMOJI on $MODEL. Identity in ~/.agent-identity.json. Claimed issue #$ISSUE_NUM ($ISSUE_TITLE). Branch will be $BRANCH. Read CLAUDE.md, COMMENT_STYLE.md, CONTEXT.md, ARCHITECTURE.md, then implement: post a plan, create branch, code, tests, PR. Body must include 'Closes #$ISSUE_NUM'."
+    TASK_PROMPT="You are $NAME $EMOJI on $MODEL. Identity in ~/.agent-identity.json. Claimed issue #$ISSUE_NUM ($ISSUE_TITLE). Branch will be $BRANCH.
+
+Read CLAUDE.md, COMMENT_STYLE.md, CONTEXT.md, ARCHITECTURE.md.
+
+Your FIRST action, before any code or branch, is to post ONE comment on issue #$ISSUE_NUM stating your decision and a one-sentence why. Use exactly this opening line then a brief reason:
+- 'Decision: implement directly — <why>' (clear, scoped, testable), or
+- 'Decision: propose triage — <why>' (vague, too broad, or needs splitting), or
+- 'Decision: blocked — <why>' (missing info or dependency).
+
+Then act on that decision:
+- implement: post your plan, create the branch, implement, write tests, run the gates, open a PR whose body includes 'Closes #$ISSUE_NUM'.
+- triage: post the triage proposal per CLAUDE.md, add label triage:proposed, remove your claim, stop.
+- blocked: add label agent:blocked, stop."
   fi
 
   task_log="/var/log/agent-task-$ISSUE_NUM.log"

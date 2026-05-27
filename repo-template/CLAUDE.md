@@ -120,6 +120,16 @@ If `DESIGN.md` and `DESIGN_DEFAULTS.md` conflict, the defaults win — they are 
 
 ## Workflow
 
+### Step 0 — Always post your decision first
+
+Before any branch or code, post ONE comment on the issue stating your decision and a one-sentence why. Start the comment with exactly one of:
+
+- `Decision: implement directly — <why>`
+- `Decision: propose triage — <why>`
+- `Decision: blocked — <why>`
+
+This is non-negotiable: every issue an agent picks up must carry a visible record of what the agent decided and the reason, so a human scanning the issue always knows why it's in its current state. Then act on that decision per the steps below.
+
 ### Step 1 — Decide if the issue needs triage
 
 When you claim an issue, first decide if it's actionable or needs triage.

@@ -138,7 +138,7 @@ So on first run the agent:
 1. Open an issue in your target repo using the **Agent Task** template (the wizard injected this).
 2. Make sure it has the `agent-ready` label. **`model:sonnet` is the default** — you only need a `model:*` label if you want to route to `haiku` (trivial fixes) or `opus` (hard problems).
 3. Within ~3 minutes a VM spawns in your Azure RG. The Flow 2 dashboard shows it.
-4. **First run:** the agent opens the onboarding PR described above — merge it, then your issue gets worked on the next cycle. **After onboarding:** the agent claims the issue, posts a plan, codes, opens a PR.
+4. **First run:** the agent opens the onboarding PR described above — merge it, then your issue gets worked on the next cycle. **After onboarding:** the agent claims the issue, posts a decision comment (`Decision: implement directly / propose triage / blocked — <why>`), then acts on it — plan, code, PR (or a triage proposal). Every claimed issue always carries a comment explaining what the agent decided and why.
 
 If something stalls:
 - Check the agent's **Log** button in the dashboard.
