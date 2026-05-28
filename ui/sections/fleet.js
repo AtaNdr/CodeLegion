@@ -19,7 +19,6 @@ export function renderFleet({ fleet, total, aliveCount, sleepingCount, byModel, 
   <div class="row">
     <button onclick="fleetAction('wake-all')">Wake all</button>
     <button onclick="fleetAction('sleep-all')">Sleep all</button>
-    <button onclick="doCleanupNics()">Cleanup orphan NICs</button>
     <button class="primary" onclick="promptSpin()">+ Force-create</button>
   </div>
 </div>

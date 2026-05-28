@@ -18,6 +18,12 @@ export function renderDiscovery({ discovery, missing, topError }) {
   return `
 <details>
   <summary><h2 style="display:inline-block; margin:0">Environment & discovery</h2></summary>
+
+  <div class="card spread" style="margin-top:.5rem">
+    <span class="muted" style="font-size:.88rem">Infrastructure maintenance — orphan NICs hold subnet IPs after failed/old VM creations. Run if VM spin-up fails with "subnet does not have enough capacity".</span>
+    <button onclick="doCleanupNics()">Cleanup orphan NICs</button>
+  </div>
+
   ${missing.length > 0 ? `
     <div class="card err">
       <strong>Missing required configuration:</strong>

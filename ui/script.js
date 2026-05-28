@@ -330,9 +330,16 @@ async function showLog(vmName) {
   const r = await fetch('/agent/logs/' + encodeURIComponent(vmName));
   const text = await r.text();
   const dlg = document.getElementById('timeline-modal');
-  if (!dlg) { alert(text.slice(-4000)); return; }
-  document.getElementById('timeline-title').textContent = 'Raw log · ' + vmName;
-  document.getElementById('timeline-body').textContent = text.slice(-8000) || '(empty)';
+  if (!dlg) { alert(text); return; }
+  document.getElementById('timeline-title').textContent = 'Raw log · ' + vmName + ' (' + (text ? text.length.toLocaleString() + ' chars' : 'empty') + ')';
+  // Show the FULL log (cumulative across the VM's lifetime). Previously
+  // truncated to the last 8000 chars which made older entries appear to be
+  // "overridden" by new ones — they were always on disk, just not displayed.
+  // Modal already has overflow:auto + max-height, so a long log scrolls.
+  document.getElementById('timeline-body').textContent = text || '(empty)';
+  // Auto-scroll to the latest entry — that's usually what you want.
+  const body = document.getElementById('timeline-body');
+  requestAnimationFrame(() => { body.scrollTop = body.scrollHeight; });
   dlg.showModal();
 }
 async function promptSpin() {
