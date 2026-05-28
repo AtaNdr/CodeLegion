@@ -4,9 +4,20 @@ import { escapeHtml, pill, statusDot } from '../common.js';
 
 export function renderFleet({ fleet, total, aliveCount, sleepingCount, byModel, agents, reconcile }) {
   const cards = (agents || []).map(renderAgentCard).join('') || '<p class="empty">No agents yet. Open a labeled issue in your repo to trigger one.</p>';
+  const paused = reconcile?.pause?.paused === true;
+  const pauseBtn = paused
+    ? `<button class="primary" onclick="doResumeFleet()">▶ Start fleet</button>`
+    : `<button class="danger" onclick="doPauseFleet()">⏸ Stop fleet</button>`;
+  const pausedBanner = paused
+    ? `<div class="card" style="border-left:3px solid var(--warn, #c79100); background:color-mix(in srgb, var(--warn, #c79100) 8%, transparent); margin-bottom:.5rem">
+         <strong>Fleet paused.</strong> Reconcile is halted and no new agents will spin or wake. Existing agents were deallocated. Click <em>Start fleet</em> to resume.
+         ${reconcile?.pause?.updatedAt ? `<span class="muted" style="margin-left:.5rem; font-size:.85rem">since ${escapeHtml(new Date(reconcile.pause.updatedAt).toLocaleString())}</span>` : ''}
+       </div>`
+    : '';
 
   return `
-<h2>Flow 2 — Fleet</h2>
+<h2>Fleet</h2>
+${pausedBanner}
 <div class="spread" style="margin-bottom:.5rem">
   <span class="muted">
     Total ${total}
@@ -17,9 +28,10 @@ export function renderFleet({ fleet, total, aliveCount, sleepingCount, byModel, 
     · opus ${(byModel.opus || 0)}/${fleet.maxAgentsPerModel.opus}
   </span>
   <div class="row">
-    <button onclick="fleetAction('wake-all')">Wake all</button>
+    ${pauseBtn}
+    <button onclick="fleetAction('wake-all')" ${paused ? 'disabled title="Fleet is paused"' : ''}>Wake all</button>
     <button onclick="fleetAction('sleep-all')">Sleep all</button>
-    <button class="primary" onclick="promptSpin()">+ Force-create</button>
+    <button class="primary" onclick="promptSpin()" ${paused ? 'disabled title="Fleet is paused"' : ''}>+ Force-create</button>
   </div>
 </div>
 ${renderReconcile(reconcile)}

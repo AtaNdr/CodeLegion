@@ -3,7 +3,7 @@
 import { escapeHtml } from '../common.js';
 import { config } from '../../config.js';
 
-export function renderDiscovery({ discovery, missing, topError }) {
+export function renderDiscovery({ discovery, missing, topError, setupInline = '' }) {
   const { rg, network: net, netError } = discovery;
   const subDisplay = config.subscriptionId
     ? `<code>${escapeHtml(config.subscriptionId)}</code>`
@@ -67,5 +67,7 @@ export function renderDiscovery({ discovery, missing, topError }) {
         : '<ul>' + nats.map(n => `<li><code>${escapeHtml(n.name)}</code></li>`).join('') + '</ul>'}
     </div>
   </div>
+
+  ${setupInline ? `<div style="margin-top:1rem">${setupInline}</div>` : ''}
 </details>`;
 }

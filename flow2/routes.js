@@ -16,6 +16,7 @@ import { injectFiles, cleanFiles } from '../github/repo.js';
 import { retireStaleAgents } from './retirement.js';
 import { selfUpdate } from '../azure/self-update.js';
 import { reconcile, getAssignment, clearHint, getReconcileState, recordPoll, getReconcileHistory } from './reconcile.js';
+import { isPaused, setPaused, getPauseState } from './pause.js';
 
 const BUSY_STATES = new Set(['claimed', 'planning', 'coding']);
 const CLEAR_HINT_STATES = new Set(['claimed', 'planning', 'coding', 'deallocating', 'auth-error', 'config-error']);
@@ -252,6 +253,34 @@ flow2Router.get('/admin/reconcile/history', (_req, res) => {
 flow2Router.post('/admin/cleanup-orphans', requireAdminToken, async (_req, res) => {
   try { res.json(await cleanupOrphans()); }
   catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Pause: halt reconcile + deallocate every running agent. Resume: clear the
+// flag; reconcile picks up assignments on the next tick (45s) or via webhook.
+flow2Router.post('/admin/fleet/pause', requireAdminToken, async (req, res) => {
+  try {
+    setPaused(true, (req.body && req.body.reason) || null);
+    const agents = await listAgents();
+    const slept = [];
+    for (const a of agents) {
+      if (a.powerState === 'running' || a.powerState === 'starting') {
+        await deallocateAgent(a.vmName);
+        slept.push(a.vmName);
+      }
+    }
+    res.json({ ok: true, paused: true, slept });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+flow2Router.post('/admin/fleet/resume', requireAdminToken, async (_req, res) => {
+  setPaused(false);
+  // Kick the reconcile loop so the UI updates without waiting 45s.
+  reconcile().catch((e) => console.error('[resume→reconcile]', e.message));
+  res.json({ ok: true, paused: false });
+});
+
+flow2Router.get('/admin/fleet/pause-state', (_req, res) => {
+  res.json(getPauseState());
 });
 
 flow2Router.post('/admin/self-update', requireAdminToken, async (_req, res) => {

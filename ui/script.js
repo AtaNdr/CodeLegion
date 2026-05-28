@@ -271,6 +271,35 @@ async function vmAction(name, action) {
     t.update(ing + ' ' + name + ' failed: ' + e.message, 'error', 8000);
   }
 }
+async function doPauseFleet() {
+  const ok = await showConfirm({
+    title: 'Stop fleet',
+    body: 'Halts reconcile and deallocates every running agent. Webhooks keep arriving but do nothing until you click Start fleet. The controller and UI stay up.',
+    okLabel: 'Stop fleet',
+  });
+  if (!ok) return;
+  const t = showToast('Stopping fleet…', { type: 'loading' });
+  try {
+    const r = await postAdmin('/admin/fleet/pause');
+    const n = (r.slept || []).length;
+    t.update('Fleet stopped' + (n ? ' — deallocated ' + n + ' agent(s)' : ''), 'success', 5000);
+    setTimeout(() => location.reload(), 1500);
+  } catch (e) {
+    t.update('Stop failed: ' + e.message, 'error', 8000);
+  }
+}
+
+async function doResumeFleet() {
+  const t = showToast('Starting fleet…', { type: 'loading' });
+  try {
+    await postAdmin('/admin/fleet/resume');
+    t.update('Fleet started — reconcile will run shortly', 'success', 4000);
+    setTimeout(() => location.reload(), 1500);
+  } catch (e) {
+    t.update('Start failed: ' + e.message, 'error', 8000);
+  }
+}
+
 async function doCleanupOrphans() {
   const ok = await showConfirm({
     title: 'Cleanup orphan resources',

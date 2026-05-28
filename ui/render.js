@@ -7,8 +7,14 @@ import { renderDiscovery } from './sections/discovery.js';
 import { INLINE_SCRIPT } from './script.js';
 
 export function renderPage({ phase1, discovery, missing, topError, fleet, cost, version, adminToken }) {
-  const setupSection = phase1 ? renderSetup(phase1) : '';
-  const discoverySection = discovery ? renderDiscovery({ discovery, missing, topError }) : '';
+  // Once Flow 1 is fully green, fold the setup section into Environment &
+  // discovery so the dashboard's primary content is the fleet, not a
+  // permanent green checklist that no longer needs attention. If anything
+  // regresses (a check goes yellow/red), it pops back to the top.
+  const setupRendered = phase1 ? renderSetup(phase1) : '';
+  const setupAtTop = phase1 && !phase1.summary?.allDone ? setupRendered : '';
+  const setupInDiscovery = phase1 && phase1.summary?.allDone ? setupRendered : '';
+  const discoverySection = discovery ? renderDiscovery({ discovery, missing, topError, setupInline: setupInDiscovery }) : '';
   const fleetSection = fleet || '';
   const costSection = cost || '';
   // Admin endpoints (/admin/*) require an X-Admin-Token header that matches
@@ -32,7 +38,7 @@ export function renderPage({ phase1, discovery, missing, topError, fleet, cost, 
 </head><body>
 <main>
   <h1>CodeLegion <span class="muted">v${escapeHtml(version || config.version)}</span></h1>
-  ${setupSection}
+  ${setupAtTop}
   ${fleetSection}
   ${costSection}
   ${discoverySection}

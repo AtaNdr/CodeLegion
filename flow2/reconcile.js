@@ -20,6 +20,7 @@ import {
 } from '../azure/vm.js';
 import { allStatus } from './activity.js';
 import { findOpenOnboardingIssue, repoNeedsOnboarding, ensureOnboardingIssue } from '../github/repo.js';
+import { isPaused, getPauseState } from './pause.js';
 import { config } from '../config.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -80,6 +81,7 @@ export function getReconcileState() {
     })),
     historyCount: runHistory.length,
     vmOutcomes: getVmCreateOutcomes().slice(0, 10),
+    pause: getPauseState(),
   };
 }
 
@@ -184,6 +186,14 @@ export async function reconcile() {
   _running = true;
   try {
     if (!config.subscriptionId || !process.env.GH_REPO_OWNER || !process.env.GH_REPO_NAME) return;
+    // Honor the pause flag — no assignments, no spins, no wakes. Existing
+    // running agents were deallocated by the pause action itself; if any
+    // self-deallocate normally during pause that's fine, we just don't
+    // wake them back.
+    if (isPaused()) {
+      lastRun = { at: new Date().toISOString(), paused: true };
+      return;
+    }
 
     // Keep the onboarding issue alive while the repo needs it (cheap: one
     // API call unless none is open).
@@ -257,8 +267,9 @@ export async function reconcile() {
   } finally {
     _running = false;
     // Push to rolling history (append-only, capped). Done in finally so even
-    // errored runs are recorded for diagnosis.
-    if (lastRun) {
+    // errored runs are recorded for diagnosis. Skip paused ticks so a long
+    // pause doesn't wash useful pre-pause runs out of the 50-run window.
+    if (lastRun && !lastRun.paused) {
       runHistory.push(lastRun);
       while (runHistory.length > HISTORY_MAX) runHistory.shift();
     }
