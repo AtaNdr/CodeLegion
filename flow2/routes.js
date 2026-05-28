@@ -10,7 +10,7 @@ import { fleetSnapshot } from './vmlist.js';
 import { buildSecretsResponse } from './secrets.js';
 import {
   listAgents, startExistingAgent, deallocateAgent, deleteAgent,
-  spinNewAgent, runShellCommand,
+  spinNewAgent, runShellCommand, cleanupOrphanedNics,
 } from '../azure/vm.js';
 import { injectFiles, cleanFiles } from '../github/repo.js';
 import { retireStaleAgents } from './retirement.js';
@@ -240,6 +240,11 @@ flow2Router.post('/admin/retire-stale', requireAdminToken, async (_req, res) => 
 
 flow2Router.post('/admin/reconcile', requireAdminToken, async (_req, res) => {
   try { await reconcile(); res.json(getReconcileState()); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+flow2Router.post('/admin/cleanup-nics', requireAdminToken, async (_req, res) => {
+  try { res.json(await cleanupOrphanedNics()); }
   catch (e) { res.status(500).json({ error: e.message }); }
 });
 

@@ -88,8 +88,42 @@ export async function deleteAgent(vmName) {
   const rg = config.resourceGroup;
   console.log(`[vm] deleting ${vmName}`);
   await compute().virtualMachines.beginDeleteAndWait(rg, vmName);
-  try { await network().networkInterfaces.beginDeleteAndWait(rg, `${vmName}-nic`); } catch {}
+  // Belt-and-braces NIC cleanup. New VMs are created with deleteOption:'Delete'
+  // on the NIC so Azure auto-cleans, but old VMs predating that flag still
+  // need the explicit delete. Log failures instead of silently swallowing.
+  try {
+    await network().networkInterfaces.beginDeleteAndWait(rg, `${vmName}-nic`);
+  } catch (e) {
+    if (!/NotFound|does not exist/i.test(e.message)) {
+      console.warn(`[vm] could not delete NIC ${vmName}-nic:`, e.message);
+    }
+  }
   return vmName;
+}
+
+// Find and delete NICs in the RG that match our naming convention but are
+// not attached to any VM. This catches orphans from failed VM creations
+// (NIC created, VM creation errored) that exhaust the subnet's IP pool.
+export async function cleanupOrphanedNics() {
+  const rg = config.resourceGroup;
+  if (!rg) return { scanned: 0, deleted: [], errors: [] };
+  const all = [];
+  for await (const n of network().networkInterfaces.list(rg)) all.push(n);
+  const deleted = [];
+  const errors = [];
+  for (const nic of all) {
+    if (!nic.name || !/-nic$/.test(nic.name)) continue;  // only our convention
+    if (nic.virtualMachine) continue;                      // attached, skip
+    try {
+      console.log(`[cleanup] deleting orphan NIC ${nic.name}`);
+      await network().networkInterfaces.beginDeleteAndWait(rg, nic.name);
+      deleted.push(nic.name);
+    } catch (e) {
+      console.warn(`[cleanup] could not delete ${nic.name}:`, e.message);
+      errors.push({ name: nic.name, error: e.message });
+    }
+  }
+  return { scanned: all.length, deleted, errors };
 }
 
 // runCommand: synchronously execute a shell snippet on a RUNNING VM, return stdout.
@@ -206,7 +240,8 @@ export async function spinNewAgent({ repoUrl, model }) {
     hardwareProfile: { vmSize },
     storageProfile: {
       imageReference: { publisher: 'Canonical', offer: 'ubuntu-24_04-lts', sku: 'server', version: 'latest' },
-      osDisk: { createOption: 'FromImage', diskSizeGB: 30 },
+      // deleteOption ensures the OS disk is auto-deleted when the VM is.
+      osDisk: { createOption: 'FromImage', diskSizeGB: 30, deleteOption: 'Delete' },
     },
     osProfile: {
       computerName: vmName.substring(0, 15),
@@ -216,11 +251,25 @@ export async function spinNewAgent({ repoUrl, model }) {
         : { adminPassword }),
       customData: Buffer.from(cloudInit).toString('base64'),
     },
-    networkProfile: { networkInterfaces: [{ id: nic.id, primary: true }] },
+    // deleteOption:'Delete' ensures the NIC is auto-deleted when the VM is,
+    // releasing its subnet IP. Prevents the "subnet has no capacity" leak
+    // that builds up across many VM lifecycles.
+    networkProfile: { networkInterfaces: [{ id: nic.id, primary: true, deleteOption: 'Delete' }] },
     // No user-assigned identity in v2 — VMs fetch secrets via /agent/secrets.
   };
 
+  // Fire-and-forget VM creation so the caller (webhook/reconcile) returns
+  // fast. If creation fails AFTER we created the NIC, we'd leak the NIC —
+  // so on failure, async-clean the NIC we just created.
   compute().virtualMachines.beginCreateOrUpdate(rg, vmName, vmParams)
-    .catch(err => console.error(`[vm] create failed:`, err.message));
+    .catch(async (err) => {
+      console.error(`[vm] create failed for ${vmName}:`, err.message);
+      try {
+        await network().networkInterfaces.beginDeleteAndWait(rg, `${vmName}-nic`);
+        console.log(`[vm] cleaned up orphan NIC ${vmName}-nic after failed VM create`);
+      } catch (e) {
+        console.warn(`[vm] could not clean orphan NIC ${vmName}-nic:`, e.message);
+      }
+    });
   return vmName;
 }

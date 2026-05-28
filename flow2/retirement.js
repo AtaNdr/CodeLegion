@@ -6,7 +6,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { compute, network } from '../azure/clients.js';
 import { config } from '../config.js';
-import { listAgents, isDeallocated } from '../azure/vm.js';
+import { listAgents, isDeallocated, cleanupOrphanedNics } from '../azure/vm.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -54,13 +54,22 @@ export async function retireStaleAgents() {
   return { retired, skipped };
 }
 
+async function sweep() {
+  await retireStaleAgents().catch(e => console.error('[retirement] sweep failed:', e.message));
+  // Always also clean orphan NICs — cheap, and prevents the subnet-IP leak.
+  try {
+    const r = await cleanupOrphanedNics();
+    if (r.deleted.length) console.log(`[cleanup] removed ${r.deleted.length} orphan NIC(s):`, r.deleted.join(', '));
+  } catch (e) { console.error('[cleanup] orphan NIC sweep failed:', e.message); }
+}
+
 export function startRetirementSweep() {
   const retention = cfg().retirement || {};
   if (!retention.enabled) return;
   const intervalHours = retention.checkIntervalHours || 6;
   const intervalMs = intervalHours * 60 * 60 * 1000;
   // First sweep after 60s, then on interval.
-  setTimeout(() => retireStaleAgents().catch(e => console.error('[retirement] sweep failed:', e.message)), 60_000);
-  setInterval(() => retireStaleAgents().catch(e => console.error('[retirement] sweep failed:', e.message)), intervalMs);
-  console.log(`[retirement] scheduled every ${intervalHours}h`);
+  setTimeout(() => sweep(), 60_000);
+  setInterval(() => sweep(), intervalMs);
+  console.log(`[retirement] scheduled every ${intervalHours}h (+ orphan NIC cleanup)`);
 }

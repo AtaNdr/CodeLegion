@@ -271,6 +271,25 @@ async function vmAction(name, action) {
     t.update(ing + ' ' + name + ' failed: ' + e.message, 'error', 8000);
   }
 }
+async function doCleanupNics() {
+  const ok = await showConfirm({
+    title: 'Cleanup orphan NICs',
+    body: 'Find NICs in the RG with our naming convention that are not attached to any VM, and delete them. Releases their subnet IPs.',
+    okLabel: 'Cleanup',
+  });
+  if (!ok) return;
+  const t = showToast('Scanning for orphan NICs…', { type: 'loading' });
+  try {
+    const r = await postAdmin('/admin/cleanup-nics');
+    const d = (r.deleted || []).length;
+    const e = (r.errors || []).length;
+    t.update('Scanned ' + (r.scanned || 0) + ' NICs — deleted ' + d + (e ? ', ' + e + ' errors' : ''), e ? 'error' : 'success', 6000);
+    if (d > 0) setTimeout(() => location.reload(), 2000);
+  } catch (e) {
+    t.update('Cleanup failed: ' + e.message, 'error', 8000);
+  }
+}
+
 async function doReconcile() {
   const t = showToast('Running reconcile…', { type: 'loading' });
   try {
