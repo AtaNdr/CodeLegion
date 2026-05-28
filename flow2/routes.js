@@ -15,7 +15,7 @@ import {
 import { injectFiles, cleanFiles } from '../github/repo.js';
 import { retireStaleAgents } from './retirement.js';
 import { selfUpdate } from '../azure/self-update.js';
-import { reconcile, getAssignment, clearHint, getReconcileState, recordPoll } from './reconcile.js';
+import { reconcile, getAssignment, clearHint, getReconcileState, recordPoll, getReconcileHistory } from './reconcile.js';
 
 const BUSY_STATES = new Set(['claimed', 'planning', 'coding']);
 const CLEAR_HINT_STATES = new Set(['claimed', 'planning', 'coding', 'deallocating', 'auth-error', 'config-error']);
@@ -243,6 +243,10 @@ flow2Router.post('/admin/retire-stale', requireAdminToken, async (_req, res) => 
 flow2Router.post('/admin/reconcile', requireAdminToken, async (_req, res) => {
   try { await reconcile(); res.json(getReconcileState()); }
   catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+flow2Router.get('/admin/reconcile/history', (_req, res) => {
+  res.json({ runs: getReconcileHistory() });
 });
 
 flow2Router.post('/admin/cleanup-nics', requireAdminToken, async (_req, res) => {

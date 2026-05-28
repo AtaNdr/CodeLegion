@@ -290,6 +290,37 @@ async function doCleanupNics() {
   }
 }
 
+async function showReconcileHistory() {
+  try {
+    const r = await fetch('/admin/reconcile/history');
+    const data = await r.json();
+    const runs = data.runs || [];
+    const dlg = document.getElementById('timeline-modal');
+    document.getElementById('timeline-title').textContent = 'Reconcile history (' + runs.length + ' runs · newest first)';
+    if (runs.length === 0) {
+      document.getElementById('timeline-body').textContent = '(no runs yet)';
+    } else {
+      const formatted = runs.map(function(r) {
+        const when = r.at ? new Date(r.at).toLocaleTimeString() : '?';
+        if (r.error) return when + ' · ERROR: ' + r.error;
+        const u = (r.unclaimed || []).map(function(i) { return '#' + i.issue + (i.onboarding ? '(ob)' : '') + ':' + i.model; }).join(',') || 'none';
+        const a = (r.assigned || []).map(function(x) { return '#' + x.issue + '→' + x.vm; }).join(',') || 'none';
+        const ca = (r.capacityActions || []).map(function(x) {
+          return x.model + ':' + x.action + (x.vmName ? ' ' + x.vmName : '') + (x.error ? ' (' + x.error.slice(0, 60) + ')' : '');
+        }).join(' · ') || 'none';
+        return when + ' · alive ' + (r.aliveCount || 0) + ' free ' + (r.freeCount || 0)
+          + ' · unclaimed: ' + u
+          + ' · assigned: ' + a
+          + ' · capacity: ' + ca;
+      }).join('\n');
+      document.getElementById('timeline-body').textContent = formatted;
+    }
+    dlg.showModal();
+  } catch (e) {
+    showToast('Could not load history: ' + e.message, { type: 'error', duration: 6000 });
+  }
+}
+
 async function doReconcile() {
   const t = showToast('Running reconcile…', { type: 'loading' });
   try {

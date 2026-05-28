@@ -45,6 +45,10 @@ const hints = new Map();
 
 // Last reconcile summary, surfaced in the UI for visibility.
 let lastRun = null;
+// Rolling history of recent reconcile runs (newest last). Bounded so memory
+// stays small; survives until the Web App restarts.
+const HISTORY_MAX = 50;
+const runHistory = [];
 
 // vmName → { pollCount, lastPolledAt, lastResult, lastAssignedIssue }
 // Updated by the /agent/next-task handler; surfaced in the fleet UI so you
@@ -74,7 +78,13 @@ export function getReconcileState() {
     assignments: Array.from(hints.entries()).map(([vm, h]) => ({
       vm, issue: h.issue, onboarding: h.onboarding, ageSeconds: Math.round((Date.now() - h.at) / 1000),
     })),
+    historyCount: runHistory.length,
   };
+}
+
+export function getReconcileHistory() {
+  // Newest first.
+  return runHistory.slice().reverse();
 }
 
 // Per-VM assignment for the fleet UI (so a card shows its assigned issue
@@ -238,6 +248,12 @@ export async function reconcile() {
     lastRun = { at: new Date().toISOString(), error: e.message };
   } finally {
     _running = false;
+    // Push to rolling history (append-only, capped). Done in finally so even
+    // errored runs are recorded for diagnosis.
+    if (lastRun) {
+      runHistory.push(lastRun);
+      while (runHistory.length > HISTORY_MAX) runHistory.shift();
+    }
   }
 }
 

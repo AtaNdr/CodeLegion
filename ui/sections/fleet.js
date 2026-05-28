@@ -51,7 +51,7 @@ function renderReconcile(reconcile) {
 <div class="card">
   <div class="spread">
     <strong>Orchestrator</strong>
-    <div class="row"><span class="muted">last run ${escapeHtml(when)}</span><button onclick="doReconcile()">Reconcile now</button></div>
+    <div class="row"><span class="muted">last run ${escapeHtml(when)}${reconcile?.historyCount ? ' · ' + reconcile.historyCount + ' runs kept' : ''}</span><button onclick="showReconcileHistory()">History</button><button onclick="doReconcile()">Reconcile now</button></div>
   </div>
   ${errLine}
   <div class="muted" style="margin-top:.35rem; font-size:.88rem">
