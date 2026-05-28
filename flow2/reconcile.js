@@ -16,7 +16,7 @@ import { fileURLToPath } from 'url';
 import { ghFetch } from '../github/app.js';
 import {
   listAgents, isAlive, isWakeable, groupByModel,
-  startExistingAgent, spinNewAgent,
+  startExistingAgent, spinNewAgent, inFlightCount, getVmCreateOutcomes,
 } from '../azure/vm.js';
 import { allStatus } from './activity.js';
 import { findOpenOnboardingIssue, repoNeedsOnboarding, ensureOnboardingIssue } from '../github/repo.js';
@@ -79,6 +79,7 @@ export function getReconcileState() {
       vm, issue: h.issue, onboarding: h.onboarding, ageSeconds: Math.round((Date.now() - h.at) / 1000),
     })),
     historyCount: runHistory.length,
+    vmOutcomes: getVmCreateOutcomes().slice(0, 10),
   };
 }
 
@@ -137,8 +138,15 @@ async function ensureCapacity(neededByModel, agents) {
       break;
     }
     const aliveOfModel = alive.filter(a => a.model === model).length;
-    if (aliveOfModel >= fleet.maxAgentsPerModel[model]) {
-      actions.push({ model, action: 'skipped', reason: `${model} cap reached` });
+    const inFlight = inFlightCount(model);
+    // Count in-flight creates toward capacity — otherwise we'd respawn every
+    // 45s while a VM is mid-provisioning.
+    if (aliveOfModel + inFlight >= fleet.maxAgentsPerModel[model]) {
+      actions.push({ model, action: 'skipped', reason: `${model} cap reached (alive ${aliveOfModel}, in-flight ${inFlight})` });
+      continue;
+    }
+    if (inFlight > 0) {
+      actions.push({ model, action: 'waiting', reason: `${inFlight} ${model} VM(s) still creating — not spinning another` });
       continue;
     }
 

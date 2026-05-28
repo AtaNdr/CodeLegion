@@ -101,6 +101,37 @@ export async function deleteAgent(vmName) {
   return vmName;
 }
 
+// ---- VM creation outcome tracking ---------------------------------
+// beginCreateOrUpdate is fire-and-forget — without tracking, we never see
+// async provisioning failures (quota, image, region capacity, etc.). We
+// keep:
+//   - vmInFlight: VMs whose async create hasn't resolved yet, so reconcile
+//     can include them in capacity counts and avoid over-spinning.
+//   - vmOutcomes: ring buffer of recent create attempts (newest last) with
+//     status/error, surfaced in the UI so failures aren't silent.
+const VM_OUTCOMES_MAX = 30;
+const IN_FLIGHT_TTL_MS = 5 * 60 * 1000;
+const vmInFlight = new Map();   // vmName → { model, at }
+const vmOutcomes = [];          // newest last
+
+function recordOutcome(o) {
+  vmOutcomes.push(o);
+  while (vmOutcomes.length > VM_OUTCOMES_MAX) vmOutcomes.shift();
+}
+
+export function inFlightCount(model) {
+  for (const [vm, info] of vmInFlight) {
+    if (Date.now() - info.at > IN_FLIGHT_TTL_MS) vmInFlight.delete(vm);
+  }
+  let n = 0;
+  for (const info of vmInFlight.values()) if (info.model === model) n++;
+  return n;
+}
+
+export function getVmCreateOutcomes() {
+  return vmOutcomes.slice().reverse();  // newest first
+}
+
 // Find and delete NICs in the RG that match our naming convention but are
 // not attached to any VM. This catches orphans from failed VM creations
 // (NIC created, VM creation errored) that exhaust the subnet's IP pool.
@@ -258,12 +289,25 @@ export async function spinNewAgent({ repoUrl, model }) {
     // No user-assigned identity in v2 — VMs fetch secrets via /agent/secrets.
   };
 
-  // Fire-and-forget VM creation so the caller (webhook/reconcile) returns
-  // fast. If creation fails AFTER we created the NIC, we'd leak the NIC —
-  // so on failure, async-clean the NIC we just created.
-  compute().virtualMachines.beginCreateOrUpdate(rg, vmName, vmParams)
+  // Fire-and-forget from the caller's POV, but use beginCreateOrUpdateAndWait
+  // so the .then/.catch reflects the ACTUAL provisioning result (not just
+  // request acceptance). Tracks in-flight so reconcile doesn't over-spin
+  // while creation is mid-flight; records the outcome so failures show in
+  // the UI instead of disappearing into App Service logs.
+  vmInFlight.set(vmName, { model, at: Date.now() });
+  recordOutcome({ vmName, model, at: new Date().toISOString(), status: 'in-flight' });
+
+  compute().virtualMachines.beginCreateOrUpdateAndWait(rg, vmName, vmParams)
+    .then(() => {
+      vmInFlight.delete(vmName);
+      recordOutcome({ vmName, model, at: new Date().toISOString(), status: 'created' });
+      console.log(`[vm] ${vmName} provisioned successfully`);
+    })
     .catch(async (err) => {
-      console.error(`[vm] create failed for ${vmName}:`, err.message);
+      vmInFlight.delete(vmName);
+      const errMsg = (err && err.message) || String(err);
+      recordOutcome({ vmName, model, at: new Date().toISOString(), status: 'failed', error: errMsg });
+      console.error(`[vm] create failed for ${vmName}:`, errMsg);
       try {
         await network().networkInterfaces.beginDeleteAndWait(rg, `${vmName}-nic`);
         console.log(`[vm] cleaned up orphan NIC ${vmName}-nic after failed VM create`);

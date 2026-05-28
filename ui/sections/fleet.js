@@ -47,6 +47,15 @@ function renderReconcile(reconcile) {
         return `<span class="${tag === 'err' ? 'err' : tag === 'ok' ? 'ok' : 'muted'}">${escapeHtml(a.model)}: ${escapeHtml(a.action)}${escapeHtml(detail)}</span>`;
       }).join(' · ')}`
     : '';
+  // Show recent failed VM creations prominently — these are usually the
+  // root cause when reconcile keeps spinning but no VM appears.
+  const outcomes = reconcile?.vmOutcomes || [];
+  const failures = outcomes.filter(o => o.status === 'failed').slice(0, 3);
+  const failuresBlock = failures.length
+    ? `<div class="err" style="margin-top:.5rem; font-size:.85rem"><strong>Recent VM creation failures:</strong>${failures.map(f =>
+        `<div style="margin-top:.2rem">· ${escapeHtml(new Date(f.at).toLocaleTimeString())} · ${escapeHtml(f.vmName)} (${escapeHtml(f.model)}): ${escapeHtml((f.error || '').slice(0, 280))}</div>`
+      ).join('')}</div>`
+    : '';
   return `
 <div class="card">
   <div class="spread">
@@ -60,6 +69,7 @@ function renderReconcile(reconcile) {
     ${lr.needCapacity && Object.keys(lr.needCapacity).length ? `<br>Waiting on capacity: ${escapeHtml(JSON.stringify(lr.needCapacity))}` : ''}
     ${actionsLine}
   </div>
+  ${failuresBlock}
 </div>`;
 }
 
