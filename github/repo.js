@@ -262,6 +262,7 @@ function adminPermError() {
 // to self-create it. The agent then just claims and executes.
 
 export const ONBOARDING_LABEL = 'agent:onboarding';
+export const ONBOARDING_TITLE = 'Onboard the fleet: write CONTEXT.md, ARCHITECTURE.md, DESIGN.md';
 
 const ONBOARDING_BODY = `## What this is
 
@@ -306,15 +307,55 @@ Read every source file in the repo — don't skim. Read \`package.json\` / \`go.
 
 Be thorough — every future agent depends on these files.`;
 
-export async function findOpenOnboardingIssue() {
+// Returns every open onboarding issue, oldest first. The label-filtered
+// /issues query (?labels=agent:onboarding) lags ~30–60s after a label is
+// added — race window where reconcile sees "no onboarding issue" right
+// after Flow 1 created one and creates a duplicate. We scan the full
+// recent-open-issues list instead (that endpoint is real-time fresh) and
+// match by label OR exact title — title catches the case where the label
+// itself isn't visible yet.
+export async function findAllOpenOnboardingIssues() {
   const o = owner();
   const r = repo();
-  const resp = await ghFetch(`/repos/${o}/${r}/issues?labels=${encodeURIComponent(ONBOARDING_LABEL)}&state=open&per_page=1`);
-  if (!resp.ok) return null;
+  const resp = await ghFetch(`/repos/${o}/${r}/issues?state=open&per_page=100&sort=created&direction=asc`);
+  if (!resp.ok) return [];
   const arr = await resp.json();
-  // /issues also returns PRs; filter to real issues.
-  const issue = (arr || []).find(x => !x.pull_request);
-  return issue ? issue.number : null;
+  const out = [];
+  for (const it of arr) {
+    if (it.pull_request) continue;  // /issues also returns PRs
+    const labels = (it.labels || []).map(l => typeof l === 'string' ? l : l.name);
+    if (labels.includes(ONBOARDING_LABEL) || it.title === ONBOARDING_TITLE) {
+      out.push(it.number);
+    }
+  }
+  return out;
+}
+
+export async function findOpenOnboardingIssue() {
+  const all = await findAllOpenOnboardingIssues();
+  return all[0] || null;  // oldest = canonical
+}
+
+async function closeDuplicateOnboarding(dupe, canonical) {
+  const o = owner();
+  const r = repo();
+  try {
+    await ghFetch(`/repos/${o}/${r}/issues/${dupe}/comments`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        body: `Closing as duplicate of #${canonical}. Created during a brief GitHub label-index race: when the controller queried \`?labels=${ONBOARDING_LABEL}\` seconds after #${canonical} was created, indexing hadn't caught up and the controller spawned a second issue. Tracking onboarding at #${canonical}.`,
+      }),
+    });
+    await ghFetch(`/repos/${o}/${r}/issues/${dupe}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ state: 'closed', state_reason: 'not_planned' }),
+    });
+    console.log(`[onboarding] closed duplicate #${dupe} (canonical #${canonical})`);
+  } catch (e) {
+    console.warn(`[onboarding] could not close duplicate #${dupe}:`, e.message);
+  }
 }
 
 export async function repoNeedsOnboarding() {
@@ -329,15 +370,26 @@ export async function repoNeedsOnboarding() {
 }
 
 export async function ensureOnboardingIssue() {
-  const existing = await findOpenOnboardingIssue();
-  if (existing) return { number: existing, created: false };
+  const existing = await findAllOpenOnboardingIssues();
+  if (existing.length > 0) {
+    const canonical = existing[0];  // oldest
+    // Self-heal any duplicates from the label-index race (or from prior
+    // controller versions that lacked the title-fallback search).
+    if (existing.length > 1) {
+      console.log(`[onboarding] found ${existing.length} open — keeping #${canonical}, closing ${existing.length - 1} duplicate(s)`);
+      for (const dupe of existing.slice(1)) {
+        await closeDuplicateOnboarding(dupe, canonical);
+      }
+    }
+    return { number: canonical, created: false, deduped: existing.length - 1 };
+  }
   const o = owner();
   const r = repo();
   const resp = await ghFetch(`/repos/${o}/${r}/issues`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      title: 'Onboard the fleet: write CONTEXT.md, ARCHITECTURE.md, DESIGN.md',
+      title: ONBOARDING_TITLE,
       labels: ['agent-ready', ONBOARDING_LABEL],
       body: ONBOARDING_BODY,
     }),

@@ -19,7 +19,7 @@ import {
   startExistingAgent, spinNewAgent, inFlightCount, getVmCreateOutcomes,
 } from '../azure/vm.js';
 import { allStatus } from './activity.js';
-import { findOpenOnboardingIssue, repoNeedsOnboarding, ensureOnboardingIssue } from '../github/repo.js';
+import { repoNeedsOnboarding, ensureOnboardingIssue } from '../github/repo.js';
 import { isPaused, getPauseState } from './pause.js';
 import { config } from '../config.js';
 
@@ -117,7 +117,20 @@ export async function listUnclaimedIssues() {
   }
   // Onboarding first, then oldest issue number first.
   out.sort((a, b) => (Number(b.onboarding) - Number(a.onboarding)) || (a.number - b.number));
-  return out;
+  // Collapse onboarding duplicates: only one agent should ever work on
+  // onboarding. If `ensureOnboardingIssue` left duplicates around (or hadn't
+  // run yet on this controller), don't dispatch multiple agents to them.
+  // The sort above puts the oldest onboarding issue first; keep only that.
+  let sawOnboarding = false;
+  const deduped = [];
+  for (const i of out) {
+    if (i.onboarding) {
+      if (sawOnboarding) continue;
+      sawOnboarding = true;
+    }
+    deduped.push(i);
+  }
+  return deduped;
 }
 
 export function clearHint(vmName) { hints.delete(vmName); }
@@ -195,13 +208,15 @@ export async function reconcile() {
       return;
     }
 
-    // Keep the onboarding issue alive while the repo needs it (cheap: one
-    // API call unless none is open).
+    // Keep the onboarding issue alive while the repo needs it. Calls
+    // ensureOnboardingIssue unconditionally (when needed) so it can also
+    // close any duplicates the label-index race may have created in prior
+    // cycles or controller versions.
     try {
-      const open = await findOpenOnboardingIssue();
-      if (!open && await repoNeedsOnboarding()) {
+      if (await repoNeedsOnboarding()) {
         const ob = await ensureOnboardingIssue();
-        console.log(`[reconcile] ensured onboarding issue #${ob.number}`);
+        if (ob.created) console.log(`[reconcile] created onboarding issue #${ob.number}`);
+        if (ob.deduped) console.log(`[reconcile] deduped ${ob.deduped} stale onboarding duplicate(s) — canonical #${ob.number}`);
       }
     } catch (e) { /* non-fatal */ }
 
