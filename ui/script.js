@@ -271,6 +271,49 @@ async function vmAction(name, action) {
     t.update(ing + ' ' + name + ' failed: ' + e.message, 'error', 8000);
   }
 }
+function showUninstallModal() {
+  const m = document.getElementById('uninstall-modal');
+  m.querySelectorAll('input[name="scope"]').forEach(r => r.checked = false);
+  document.getElementById('uninstall-confirm-text').value = '';
+  m.showModal();
+}
+
+async function submitUninstall(event) {
+  event.preventDefault();
+  const form = event.target;
+  const scope = (form.scope && form.scope.value) || '';
+  const typed = document.getElementById('uninstall-confirm-text').value;
+  if (!scope) { showToast('Pick a scope', { type: 'error', duration: 4000 }); return; }
+  if (typed !== 'UNINSTALL') { showToast('Type UNINSTALL exactly to confirm', { type: 'error', duration: 4000 }); return; }
+  document.getElementById('uninstall-modal').close();
+
+  const labels = { repo: 'repo files', azure: 'Azure resources', both: 'repo + Azure' };
+  const t = showToast('Uninstalling ' + labels[scope] + '… (this can take a couple minutes for Azure)', { type: 'loading' });
+  try {
+    const r = await postAdmin('/admin/uninstall/' + scope);
+    const lines = [];
+    if (r.repo) {
+      const removed = (r.repo.results || []).filter(x => x.action === 'deleted').length;
+      const errs = (r.repo.results || []).filter(x => x.action === 'error').length;
+      lines.push('repo: ' + removed + ' file(s) removed' + (errs ? ', ' + errs + ' error(s)' : ''));
+    }
+    if (r.azure) {
+      const d = (r.azure.deleted || []).length;
+      const u = (r.azure.unknown || []).length;
+      const e = (r.azure.errors || []).length;
+      let line = 'azure: ' + d + ' resource(s) deleted';
+      if (u) line += ', ' + u + ' unrecognised left in place';
+      if (e) line += ', ' + e + ' error(s)';
+      lines.push(line);
+    }
+    const hasErr = (r.repo?.results || []).some(x => x.action === 'error') || (r.azure?.errors || []).length > 0;
+    t.update('Uninstall complete — ' + lines.join(' · '), hasErr ? 'error' : 'success', 10000);
+    setTimeout(() => location.reload(), 2500);
+  } catch (e) {
+    t.update('Uninstall failed: ' + e.message, 'error', 10000);
+  }
+}
+
 async function doPauseFleet() {
   const ok = await showConfirm({
     title: 'Stop fleet',

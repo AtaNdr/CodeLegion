@@ -24,6 +24,11 @@ export function renderDiscovery({ discovery, missing, topError, setupInline = ''
     <button onclick="doCleanupOrphans()">Cleanup orphan resources</button>
   </div>
 
+  <div class="card spread" style="margin-top:.5rem; border-color: var(--err)">
+    <span class="muted" style="font-size:.88rem">Tear down CodeLegion — remove the agent-fleet files from the repo, wipe every Azure resource in the RG (except this Web App and its plan), or both. The fleet is paused first; you can re-install by re-running Flow 1.</span>
+    <button class="danger" onclick="showUninstallModal()">Uninstall…</button>
+  </div>
+
   ${missing.length > 0 ? `
     <div class="card err">
       <strong>Missing required configuration:</strong>

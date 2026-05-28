@@ -13,6 +13,7 @@ import {
   spinNewAgent, runShellCommand, cleanupOrphans,
 } from '../azure/vm.js';
 import { injectFiles, cleanFiles } from '../github/repo.js';
+import { cleanAzureResources } from '../azure/uninstall.js';
 import { retireStaleAgents } from './retirement.js';
 import { selfUpdate } from '../azure/self-update.js';
 import { reconcile, getAssignment, clearHint, getReconcileState, recordPoll, getReconcileHistory } from './reconcile.js';
@@ -281,6 +282,28 @@ flow2Router.post('/admin/fleet/resume', requireAdminToken, async (_req, res) => 
 
 flow2Router.get('/admin/fleet/pause-state', (_req, res) => {
   res.json(getPauseState());
+});
+
+// Uninstall — three scopes. All pause the fleet up front (clean-repo via
+// the modal text; clean-azure inside cleanAzureResources itself). All
+// destructive. Each returns a structured summary the UI can render.
+flow2Router.post('/admin/uninstall/:scope', requireAdminToken, async (req, res) => {
+  const scope = req.params.scope;
+  if (!['repo', 'azure', 'both'].includes(scope)) {
+    return res.status(400).json({ error: `unknown scope: ${scope} (expected repo|azure|both)` });
+  }
+  const out = {};
+  try {
+    if (scope === 'repo' || scope === 'both') {
+      out.repo = { results: await cleanFiles() };
+    }
+    if (scope === 'azure' || scope === 'both') {
+      out.azure = await cleanAzureResources();
+    }
+    res.json({ ok: true, scope, ...out });
+  } catch (e) {
+    res.status(500).json({ error: e.message, ...out });
+  }
 });
 
 flow2Router.post('/admin/self-update', requireAdminToken, async (_req, res) => {

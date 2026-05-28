@@ -67,6 +67,49 @@ export function renderPage({ phase1, discovery, missing, topError, fleet, cost, 
       <button type="button" id="confirm-ok-btn" class="primary" onclick="resolveConfirm(true)">Confirm</button>
     </div>
   </dialog>
+
+  <dialog id="uninstall-modal" style="max-width: 520px">
+    <form onsubmit="submitUninstall(event); return false;">
+      <h2 style="margin-top:0">Uninstall CodeLegion</h2>
+      <p class="muted" style="margin:.25rem 0 .75rem 0">Pick what to remove. <strong>This cannot be undone.</strong> The fleet is paused first.</p>
+
+      <div style="display:grid; gap:.4rem; padding:.5rem; border:1px solid var(--border); border-radius:4px">
+        <label style="display:flex; gap:.5rem; align-items:flex-start; padding:.35rem; cursor:pointer">
+          <input type="radio" name="scope" value="repo" required style="margin-top:.2rem">
+          <div>
+            <div><strong>Clean repo files</strong></div>
+            <div class="muted" style="font-size:.85rem">Removes agent-fleet templates from your GitHub repo (CLAUDE.md, DO_NOT_TOUCH.md, ISSUE_TEMPLATEs, …). Issues, PRs, and your own code untouched.</div>
+          </div>
+        </label>
+        <label style="display:flex; gap:.5rem; align-items:flex-start; padding:.35rem; cursor:pointer">
+          <input type="radio" name="scope" value="azure" style="margin-top:.2rem">
+          <div>
+            <div><strong>Clean Azure resources</strong></div>
+            <div class="muted" style="font-size:.85rem">Deletes every resource in the RG except this Web App and its App Service Plan: VMs, disks, NICs, VNet, NSG, NAT, public IP.</div>
+          </div>
+        </label>
+        <label style="display:flex; gap:.5rem; align-items:flex-start; padding:.35rem; cursor:pointer">
+          <input type="radio" name="scope" value="both" style="margin-top:.2rem">
+          <div>
+            <div><strong>Both</strong></div>
+            <div class="muted" style="font-size:.85rem">Repo files AND Azure infra. Controller stays up; App Settings preserved so you can re-install via Flow 1.</div>
+          </div>
+        </label>
+      </div>
+
+      <div style="margin-top:.75rem">
+        <label for="uninstall-confirm-text" style="display:block; font-size:.85rem; color:var(--muted)">
+          Type <code>UNINSTALL</code> to confirm
+        </label>
+        <input id="uninstall-confirm-text" type="text" required autocomplete="off" placeholder="UNINSTALL" style="margin-top:.2rem">
+      </div>
+
+      <div class="row" style="justify-content:flex-end; gap:.5rem; margin-top:.75rem">
+        <button type="button" onclick="document.getElementById('uninstall-modal').close()">Cancel</button>
+        <button type="submit" class="danger">Uninstall</button>
+      </div>
+    </form>
+  </dialog>
 </main>
 <script>${INLINE_SCRIPT}</script>
 </body></html>`;
