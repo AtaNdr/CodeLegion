@@ -15,7 +15,7 @@ import {
 import { injectFiles, cleanFiles } from '../github/repo.js';
 import { retireStaleAgents } from './retirement.js';
 import { selfUpdate } from '../azure/self-update.js';
-import { reconcile, getAssignment, clearHint, getReconcileState } from './reconcile.js';
+import { reconcile, getAssignment, clearHint, getReconcileState, recordPoll } from './reconcile.js';
 
 const BUSY_STATES = new Set(['claimed', 'planning', 'coding']);
 
@@ -96,7 +96,14 @@ flow2Router.get('/agent/next-task', requireReportToken, (req, res) => {
   const vm = req.query.vm;
   if (!vm) return res.status(400).json({ error: 'vm query param required' });
   const a = getAssignment(vm);
+  recordPoll(vm, a ? 'assigned' : 'no-work', a ? a.issue : null);
   res.json({ issue: a ? a.issue : null, onboarding: a ? !!a.onboarding : false });
+});
+
+// Cheap auth/reachability probe — agents hit this at boot to fail fast when
+// REPORT_TOKEN has drifted (rather than spinning silently for 10 minutes).
+flow2Router.get('/agent/heartbeat', requireReportToken, (_req, res) => {
+  res.json({ ok: true });
 });
 
 flow2Router.post('/agent/sync', requireReportToken, (req, res) => {

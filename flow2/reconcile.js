@@ -42,6 +42,26 @@ const hints = new Map();
 // Last reconcile summary, surfaced in the UI for visibility.
 let lastRun = null;
 
+// vmName → { pollCount, lastPolledAt, lastResult, lastAssignedIssue }
+// Updated by the /agent/next-task handler; surfaced in the fleet UI so you
+// can see whether an agent is actually polling and what it's getting back.
+const pollTelemetry = new Map();
+
+export function recordPoll(vmName, result, assignedIssue) {
+  const t = pollTelemetry.get(vmName) || { pollCount: 0 };
+  t.pollCount++;
+  t.lastPolledAt = Date.now();
+  t.lastResult = result;
+  t.lastAssignedIssue = assignedIssue;
+  pollTelemetry.set(vmName, t);
+}
+
+export function getPollTelemetry(vmName) {
+  const t = pollTelemetry.get(vmName);
+  if (!t) return null;
+  return { ...t, ageSeconds: Math.round((Date.now() - t.lastPolledAt) / 1000) };
+}
+
 const isClaimLabel = (name) => name.startsWith('agent:') && !CLAIM_EXCEPTIONS.has(name);
 
 export function getReconcileState() {

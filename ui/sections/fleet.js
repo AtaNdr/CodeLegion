@@ -64,6 +64,15 @@ function renderAgentCard(a) {
   const assignLine = a.assignment
     ? `<div class="muted" style="font-size:.82rem">assigned #${escapeHtml(String(a.assignment.issue))}${a.assignment.onboarding ? ' (onboarding)' : ''} — awaiting agent pickup</div>`
     : '';
+  // Polling telemetry — does the agent actually ask the controller for tasks?
+  let pollLine = '';
+  if (a.pollTelemetry) {
+    const t = a.pollTelemetry;
+    const age = t.ageSeconds == null ? '?' : t.ageSeconds + 's';
+    pollLine = `<div class="muted" style="font-size:.78rem">polled ${escapeHtml(age)} ago · ${escapeHtml(t.lastResult || '?')} · ${t.pollCount || 0} total</div>`;
+  } else if (a.powerState === 'running') {
+    pollLine = '<div class="warn" style="font-size:.78rem">never polled /agent/next-task — likely stale agent code or token mismatch</div>';
+  }
 
   const canForceSync = ['running', 'starting'].includes(a.powerState);
 
@@ -80,6 +89,7 @@ function renderAgentCard(a) {
     ${activity ? `<span class="muted">${escapeHtml(issue)}</span>${escapeHtml(summary)}` : '<span class="empty">awaiting status</span>'}
     ${updated ? `<span class="muted" style="font-size:.8rem"> · ${escapeHtml(updated)}</span>` : ''}
     ${assignLine}
+    ${pollLine}
   </div>
   <div class="row" style="gap:.25rem; flex-wrap:wrap">
     <button onclick="showLog('${escapeHtml(a.vmName)}')">Log</button>

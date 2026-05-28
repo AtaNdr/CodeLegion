@@ -5,7 +5,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { listAgents, isAlive, isDeallocated, groupByModel } from '../azure/vm.js';
 import { allStatus } from './activity.js';
-import { assignmentFor, getReconcileState } from './reconcile.js';
+import { assignmentFor, getReconcileState, getPollTelemetry } from './reconcile.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 let _cfg = null;
@@ -21,6 +21,7 @@ export async function fleetSnapshot() {
     ...a,
     activity: live[a.vmName] || null,
     assignment: assignmentFor(a.vmName),
+    pollTelemetry: getPollTelemetry(a.vmName),
   }));
   const alive = enriched.filter(isAlive);
   const deallocated = enriched.filter(isDeallocated);

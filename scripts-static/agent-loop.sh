@@ -321,6 +321,24 @@ remote_log "info" "online model=$MODEL idle_timeout=${IDLE_TIMEOUT}s"
 refresh_token
 self_update_scripts  # adopt any newer scripts before doing anything
 
+# Boot-time auth check — fail loud and deallocate if REPORT_TOKEN is stale,
+# rather than burning 10 minutes of compute spinning silently.
+if [[ -n "$CONTROLLER_URL" && -n "$REPORT_TOKEN" ]]; then
+  HB_CODE=$(curl -sS -o /dev/null -w '%{http_code}' -m 10 \
+    -H "Authorization: Bearer $REPORT_TOKEN" \
+    "$CONTROLLER_URL/agent/heartbeat" 2>/dev/null || echo "000")
+  if [[ "$HB_CODE" == "401" || "$HB_CODE" == "403" ]]; then
+    log "Boot heartbeat $HB_CODE — REPORT_TOKEN rejected. Deallocating."
+    remote_log "error" "boot heartbeat $HB_CODE — REPORT_TOKEN rejected"
+    write_status "auth-error" "" "REPORT_TOKEN rejected at boot — delete this VM and let reconcile spin a fresh one"
+    self_deallocate
+  elif [[ "$HB_CODE" == "200" ]]; then
+    log "Boot heartbeat OK"
+  else
+    log "Boot heartbeat returned $HB_CODE — continuing anyway"
+  fi
+fi
+
 # Background heartbeat (every 10s) — pushes any unsynced activity lines.
 (
   while sleep 10; do heartbeat_sync; done
@@ -342,18 +360,40 @@ while true; do
 
   # --- Ask the controller what to work on --------------------------
   # The controller's reconcile loop assigns unclaimed issues to free
-  # agents. We don't self-select from GitHub anymore — we just execute
-  # whatever the controller assigned us (or idle).
+  # agents. Every failure mode gets its own visible status — no more
+  # silent "idle" that's indistinguishable from healthy no-work.
   IS_ONBOARDING_TASK="false"
   ISSUE_NUM=""
-  if [[ -n "$CONTROLLER_URL" && -n "$REPORT_TOKEN" ]]; then
-    TASK_JSON=$(curl -sS -m 10 -H "Authorization: Bearer $REPORT_TOKEN" \
-      "$CONTROLLER_URL/agent/next-task?vm=$VM_NAME" 2>/dev/null || echo '{}')
-    ISSUE_NUM=$(echo "$TASK_JSON" | jq -r '.issue // empty' 2>/dev/null || echo "")
-    [[ "$(echo "$TASK_JSON" | jq -r '.onboarding // false' 2>/dev/null)" == "true" ]] && IS_ONBOARDING_TASK="true"
+
+  if [[ -z "$CONTROLLER_URL" || -z "$REPORT_TOKEN" ]]; then
+    write_status "config-error" "" "CONTROLLER_URL or REPORT_TOKEN missing in /etc/agent/env"
+    remote_log "error" "agent has no CONTROLLER_URL/REPORT_TOKEN"
+    sleep 60; continue
   fi
 
-  if [[ -z "$ISSUE_NUM" || "$ISSUE_NUM" == "null" ]]; then
+  TASK_BODY_FILE=$(mktemp)
+  NT_CODE=$(curl -sS -o "$TASK_BODY_FILE" -w '%{http_code}' -m 10 \
+    -H "Authorization: Bearer $REPORT_TOKEN" \
+    "$CONTROLLER_URL/agent/next-task?vm=$VM_NAME" 2>/dev/null || echo "000")
+  TASK_JSON=$(cat "$TASK_BODY_FILE" 2>/dev/null || echo "{}")
+  rm -f "$TASK_BODY_FILE"
+
+  if [[ "$NT_CODE" == "200" ]]; then
+    ISSUE_NUM=$(echo "$TASK_JSON" | jq -r '.issue // empty' 2>/dev/null || echo "")
+    [[ "$(echo "$TASK_JSON" | jq -r '.onboarding // false' 2>/dev/null)" == "true" ]] && IS_ONBOARDING_TASK="true"
+    if [[ -z "$ISSUE_NUM" || "$ISSUE_NUM" == "null" ]]; then
+      write_status "idle" "" "polling — controller has no assignment"
+      sleep "$POLL_INTERVAL"; continue
+    fi
+  elif [[ "$NT_CODE" == "401" || "$NT_CODE" == "403" ]]; then
+    log "next-task got $NT_CODE — REPORT_TOKEN rejected by controller"
+    remote_log "error" "next-task $NT_CODE — REPORT_TOKEN rejected"
+    write_status "auth-error" "" "controller rejected REPORT_TOKEN ($NT_CODE) — config drift; delete this VM"
+    sleep 60; continue
+  else
+    log "next-task returned HTTP $NT_CODE — controller unreachable / error"
+    remote_log "warn" "next-task HTTP $NT_CODE: ${TASK_JSON:0:120}"
+    write_status "idle" "" "controller unreachable (HTTP $NT_CODE)"
     sleep "$POLL_INTERVAL"; continue
   fi
 
