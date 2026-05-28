@@ -15,7 +15,7 @@ import {
 import { injectFiles, cleanFiles } from '../github/repo.js';
 import { retireStaleAgents } from './retirement.js';
 import { selfUpdate } from '../azure/self-update.js';
-import { reconcile, getAssignment, clearHint } from './reconcile.js';
+import { reconcile, getAssignment, clearHint, getReconcileState } from './reconcile.js';
 
 const BUSY_STATES = new Set(['claimed', 'planning', 'coding']);
 
@@ -228,6 +228,11 @@ flow2Router.post('/admin/clean-repo', requireAdminToken, async (_req, res) => {
 
 flow2Router.post('/admin/retire-stale', requireAdminToken, async (_req, res) => {
   try { res.json(await retireStaleAgents()); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+flow2Router.post('/admin/reconcile', requireAdminToken, async (_req, res) => {
+  try { await reconcile(); res.json(getReconcileState()); }
   catch (e) { res.status(500).json({ error: e.message }); }
 });
 

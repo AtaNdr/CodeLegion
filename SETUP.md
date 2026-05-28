@@ -146,7 +146,9 @@ To make this reliable, **the controller creates the onboarding issue itself** wh
 
    It then writes tests against the Acceptance criteria (each criterion → a covering test) and opens a PR mapping criteria to tests. Every claimed issue always carries a comment explaining the decision and why.
 
-If something stalls:
+If something stalls, the **Orchestrator** card (top of Flow 2) shows the last reconcile: unclaimed issues it sees, alive/free agent counts, and active assignments (`#N→vm`). Click **Reconcile now** to run it on demand. If an issue is listed as unclaimed but never gets assigned, you have no free agent of that model (check caps) or the agents aren't reporting status (likely stale VMs — delete them). Per-VM cards show `assigned #N — awaiting agent pickup` between assignment and the agent claiming.
+
+Other checks:
 - Check the agent's **Log** button in the dashboard.
 - Check the **Timeline** for state transitions.
 - Verify `/health` returns ok.

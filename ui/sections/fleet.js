@@ -2,7 +2,7 @@
 
 import { escapeHtml, pill, statusDot } from '../common.js';
 
-export function renderFleet({ fleet, total, aliveCount, sleepingCount, byModel, agents }) {
+export function renderFleet({ fleet, total, aliveCount, sleepingCount, byModel, agents, reconcile }) {
   const cards = (agents || []).map(renderAgentCard).join('') || '<p class="empty">No agents yet. Open a labeled issue in your repo to trigger one.</p>';
 
   return `
@@ -22,8 +22,34 @@ export function renderFleet({ fleet, total, aliveCount, sleepingCount, byModel, 
     <button class="primary" onclick="promptSpin()">+ Force-create</button>
   </div>
 </div>
+${renderReconcile(reconcile)}
 <div class="grid">${cards}</div>
 `;
+}
+
+function renderReconcile(reconcile) {
+  const lr = reconcile?.lastRun;
+  const assigns = reconcile?.assignments || [];
+  if (!lr) {
+    return `<div class="card"><div class="spread"><span class="muted">Orchestrator: no reconcile run yet.</span><button onclick="doReconcile()">Reconcile now</button></div></div>`;
+  }
+  const when = lr.at ? new Date(lr.at).toLocaleTimeString() : '?';
+  const unclaimed = (lr.unclaimed || []).map(i => `#${i.issue}${i.onboarding ? ' (onboarding)' : ''}·${i.model}`).join(', ') || 'none';
+  const liveAssigns = assigns.map(a => `#${escapeHtml(String(a.issue))}→${escapeHtml(a.vm)}`).join(', ') || 'none';
+  const errLine = lr.error ? `<div class="err">reconcile error: ${escapeHtml(lr.error)}</div>` : '';
+  return `
+<div class="card">
+  <div class="spread">
+    <strong>Orchestrator</strong>
+    <div class="row"><span class="muted">last run ${escapeHtml(when)}</span><button onclick="doReconcile()">Reconcile now</button></div>
+  </div>
+  ${errLine}
+  <div class="muted" style="margin-top:.35rem; font-size:.88rem">
+    Unclaimed issues: ${escapeHtml(unclaimed)}<br>
+    Alive ${lr.aliveCount ?? '?'} · free ${lr.freeCount ?? '?'} · active assignments: ${escapeHtml(liveAssigns)}
+    ${lr.needCapacity && Object.keys(lr.needCapacity).length ? `<br>Waiting on capacity: ${escapeHtml(JSON.stringify(lr.needCapacity))}` : ''}
+  </div>
+</div>`;
 }
 
 function renderAgentCard(a) {
@@ -35,6 +61,9 @@ function renderAgentCard(a) {
   const summary = activity?.summary || activity?.state || '<em class="muted">no live status</em>';
   const issue = activity?.issue ? `#${escapeHtml(activity.issue)} · ` : '';
   const updated = activity?.updatedAt ? new Date(activity.updatedAt).toLocaleTimeString() : '';
+  const assignLine = a.assignment
+    ? `<div class="muted" style="font-size:.82rem">assigned #${escapeHtml(String(a.assignment.issue))}${a.assignment.onboarding ? ' (onboarding)' : ''} — awaiting agent pickup</div>`
+    : '';
 
   const canForceSync = ['running', 'starting'].includes(a.powerState);
 
@@ -50,6 +79,7 @@ function renderAgentCard(a) {
   <div style="margin:.25rem 0; min-height:1.5rem">
     ${activity ? `<span class="muted">${escapeHtml(issue)}</span>${escapeHtml(summary)}` : '<span class="empty">awaiting status</span>'}
     ${updated ? `<span class="muted" style="font-size:.8rem"> · ${escapeHtml(updated)}</span>` : ''}
+    ${assignLine}
   </div>
   <div class="row" style="gap:.25rem; flex-wrap:wrap">
     <button onclick="showLog('${escapeHtml(a.vmName)}')">Log</button>

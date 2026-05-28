@@ -39,7 +39,27 @@ const HINT_TTL_MS = 90_000;
 // vmName → { issue, model, onboarding, at }
 const hints = new Map();
 
+// Last reconcile summary, surfaced in the UI for visibility.
+let lastRun = null;
+
 const isClaimLabel = (name) => name.startsWith('agent:') && !CLAIM_EXCEPTIONS.has(name);
+
+export function getReconcileState() {
+  return {
+    lastRun,
+    assignments: Array.from(hints.entries()).map(([vm, h]) => ({
+      vm, issue: h.issue, onboarding: h.onboarding, ageSeconds: Math.round((Date.now() - h.at) / 1000),
+    })),
+  };
+}
+
+// Per-VM assignment for the fleet UI (so a card shows its assigned issue
+// even before the agent has reported a status).
+export function assignmentFor(vmName) {
+  const h = hints.get(vmName);
+  if (!h || Date.now() - h.at > HINT_TTL_MS) return null;
+  return { issue: h.issue, onboarding: h.onboarding };
+}
 
 export async function listUnclaimedIssues() {
   const o = process.env.GH_REPO_OWNER, r = process.env.GH_REPO_NAME;
@@ -119,19 +139,21 @@ export async function reconcile() {
     }
 
     const unclaimed = await listUnclaimedIssues();
-    if (unclaimed.length === 0) return;
-
     const statuses = allStatus();
+
     // A VM is busy if it's actively working OR holds an unexpired hint.
+    // Only RUNNING VMs are assignable — a "starting" VM isn't polling
+    // next-task yet, so a hint would just expire unused.
     const busy = new Set();
     for (const a of alive) {
       const st = statuses[a.vmName];
       if (st && BUSY_STATES.has(st.state)) busy.add(a.vmName);
       if (hints.has(a.vmName)) busy.add(a.vmName);
     }
-    const free = alive.filter(a => !busy.has(a.vmName));
+    const free = alive.filter(a => a.powerState === 'running' && !busy.has(a.vmName));
 
     const assignedIssues = new Set(Array.from(hints.values()).map(h => h.issue));
+    const newAssignments = [];
     const needCapacity = {};
     for (const issue of unclaimed) {
       if (assignedIssues.has(issue.number)) continue;
@@ -139,14 +161,26 @@ export async function reconcile() {
       if (agent) {
         hints.set(agent.vmName, { issue: issue.number, model: issue.model, onboarding: issue.onboarding, at: Date.now() });
         assignedIssues.add(issue.number);
+        newAssignments.push({ vm: agent.vmName, issue: issue.number, model: issue.model });
         console.log(`[reconcile] assigned #${issue.number} (${issue.model}) → ${agent.vmName}`);
       } else {
         needCapacity[issue.model] = (needCapacity[issue.model] || 0) + 1;
       }
     }
     if (Object.keys(needCapacity).length) await ensureCapacity(needCapacity, agents);
+
+    lastRun = {
+      at: new Date().toISOString(),
+      unclaimedCount: unclaimed.length,
+      unclaimed: unclaimed.map(i => ({ issue: i.number, model: i.model, onboarding: i.onboarding })),
+      aliveCount: alive.length,
+      freeCount: free.length,
+      assigned: newAssignments,
+      needCapacity,
+    };
   } catch (e) {
     console.error('[reconcile] error:', e.message);
+    lastRun = { at: new Date().toISOString(), error: e.message };
   } finally {
     _running = false;
   }

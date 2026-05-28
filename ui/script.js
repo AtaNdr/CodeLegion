@@ -271,6 +271,19 @@ async function vmAction(name, action) {
     t.update(ing + ' ' + name + ' failed: ' + e.message, 'error', 8000);
   }
 }
+async function doReconcile() {
+  const t = showToast('Running reconcile…', { type: 'loading' });
+  try {
+    const r = await postAdmin('/admin/reconcile');
+    const n = (r.lastRun && r.lastRun.assigned ? r.lastRun.assigned.length : 0);
+    const u = (r.lastRun && r.lastRun.unclaimedCount) || 0;
+    t.update('Reconcile done — ' + u + ' unclaimed, ' + n + ' newly assigned', 'success', 5000);
+    setTimeout(() => location.reload(), 2000);
+  } catch (e) {
+    t.update('Reconcile failed: ' + e.message, 'error', 8000);
+  }
+}
+
 async function fleetAction(action) {
   const label = action === 'wake-all' ? 'Waking all agents'
     : action === 'sleep-all' ? 'Sleeping all agents' : action;

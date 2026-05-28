@@ -5,6 +5,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { listAgents, isAlive, isDeallocated, groupByModel } from '../azure/vm.js';
 import { allStatus } from './activity.js';
+import { assignmentFor, getReconcileState } from './reconcile.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 let _cfg = null;
@@ -19,6 +20,7 @@ export async function fleetSnapshot() {
   const enriched = agents.map(a => ({
     ...a,
     activity: live[a.vmName] || null,
+    assignment: assignmentFor(a.vmName),
   }));
   const alive = enriched.filter(isAlive);
   const deallocated = enriched.filter(isDeallocated);
@@ -30,5 +32,6 @@ export async function fleetSnapshot() {
     sleepingCount: deallocated.length,
     byModel: Object.fromEntries(Object.entries(byModel).map(([m, list]) => [m, list.length])),
     agents: enriched,
+    reconcile: getReconcileState(),
   };
 }
