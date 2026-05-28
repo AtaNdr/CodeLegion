@@ -312,7 +312,7 @@ async function showReconcileHistory() {
           + ' · unclaimed: ' + u
           + ' · assigned: ' + a
           + ' · capacity: ' + ca;
-      }).join('\n');
+      }).join('\\n');
       document.getElementById('timeline-body').textContent = formatted;
     }
     dlg.showModal();
