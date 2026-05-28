@@ -38,6 +38,16 @@ function renderReconcile(reconcile) {
   const unclaimed = (lr.unclaimed || []).map(i => `#${i.issue}${i.onboarding ? ' (onboarding)' : ''}·${i.model}`).join(', ') || 'none';
   const liveAssigns = assigns.map(a => `#${escapeHtml(String(a.issue))}→${escapeHtml(a.vm)}`).join(', ') || 'none';
   const errLine = lr.error ? `<div class="err">reconcile error: ${escapeHtml(lr.error)}</div>` : '';
+  const acts = lr.capacityActions || [];
+  const actionsLine = acts.length
+    ? `<br>Capacity actions: ${acts.map(a => {
+        const tag = a.action === 'spinning' || a.action === 'waking' ? 'ok'
+          : a.action === 'skipped' ? 'muted' : 'err';
+        const detail = a.error ? ` (${a.error.slice(0, 80)})`
+          : a.vmName ? ` ${a.vmName}` : a.reason ? ` (${a.reason})` : '';
+        return `<span class="${tag === 'err' ? 'err' : tag === 'ok' ? 'ok' : 'muted'}">${escapeHtml(a.model)}: ${escapeHtml(a.action)}${escapeHtml(detail)}</span>`;
+      }).join(' · ')}`
+    : '';
   return `
 <div class="card">
   <div class="spread">
@@ -49,6 +59,7 @@ function renderReconcile(reconcile) {
     Unclaimed issues: ${escapeHtml(unclaimed)}<br>
     Alive ${lr.aliveCount ?? '?'} · free ${lr.freeCount ?? '?'} · active assignments: ${escapeHtml(liveAssigns)}
     ${lr.needCapacity && Object.keys(lr.needCapacity).length ? `<br>Waiting on capacity: ${escapeHtml(JSON.stringify(lr.needCapacity))}` : ''}
+    ${actionsLine}
   </div>
 </div>`;
 }

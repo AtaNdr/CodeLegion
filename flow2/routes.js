@@ -18,6 +18,7 @@ import { selfUpdate } from '../azure/self-update.js';
 import { reconcile, getAssignment, clearHint, getReconcileState, recordPoll } from './reconcile.js';
 
 const BUSY_STATES = new Set(['claimed', 'planning', 'coding']);
+const CLEAR_HINT_STATES = new Set(['claimed', 'planning', 'coding', 'deallocating', 'auth-error', 'config-error']);
 
 export const flow2Router = express.Router();
 
@@ -84,9 +85,10 @@ flow2Router.post('/agent/status', requireReportToken, (req, res) => {
   const { vmName, state, issue, summary } = req.body || {};
   if (!vmName) return res.status(400).json({ error: 'vmName required' });
   recordStatus({ vmName, state, issue, summary });
-  // Once the agent is genuinely working, drop its assignment hint — its
-  // "busy" state is now tracked by status, and the hint reservation is done.
-  if (BUSY_STATES.has(state)) clearHint(vmName);
+  // Drop the assignment hint when the agent is genuinely working (busy is
+  // now tracked by status) OR when it's leaving the pool (deallocating /
+  // errored — assignment would never be picked up).
+  if (CLEAR_HINT_STATES.has(state)) clearHint(vmName);
   res.json({ ok: true });
 });
 

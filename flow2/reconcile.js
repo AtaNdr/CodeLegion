@@ -34,6 +34,10 @@ const CLAIM_EXCEPTIONS = new Set([
   'agent:onboarding', 'agent:needs-revision', 'agent:blocked', 'agent:do-not-pick', 'agent:approved',
 ]);
 const BUSY_STATES = new Set(['claimed', 'planning', 'coding']);
+// States that mean the VM is NOT eligible for new assignment (about to be
+// gone, or genuinely broken). Without this, we'd race-assign to a VM that's
+// in self_deallocate's 5-min wait and will never poll again.
+const UNAVAILABLE_STATES = new Set(['deallocating', 'failed', 'auth-error', 'config-error']);
 const HINT_TTL_MS = 90_000;
 
 // vmName → { issue, model, onboarding, at }
@@ -114,23 +118,46 @@ export function getAssignment(vmName) {
 
 async function ensureCapacity(neededByModel, agents) {
   const fleet = cfg().fleet;
+  const actions = [];
   for (const [model, count] of Object.entries(neededByModel)) {
     if (count <= 0) continue;
     const alive = agents.filter(isAlive);
-    if (alive.length >= fleet.maxAgentsTotal) break;
+    if (alive.length >= fleet.maxAgentsTotal) {
+      actions.push({ model, action: 'skipped', reason: 'global cap reached' });
+      break;
+    }
     const aliveOfModel = alive.filter(a => a.model === model).length;
-    if (aliveOfModel >= fleet.maxAgentsPerModel[model]) continue;
+    if (aliveOfModel >= fleet.maxAgentsPerModel[model]) {
+      actions.push({ model, action: 'skipped', reason: `${model} cap reached` });
+      continue;
+    }
 
     const sleeping = agents.filter(a => isWakeable(a) && a.model === model);
     if (sleeping[0]) {
-      await startExistingAgent(sleeping[0].vmName);
-      console.log(`[reconcile] woke ${sleeping[0].vmName} for ${model}`);
+      try {
+        await startExistingAgent(sleeping[0].vmName);
+        actions.push({ model, action: 'waking', vmName: sleeping[0].vmName });
+        console.log(`[reconcile] woke ${sleeping[0].vmName} for ${model}`);
+      } catch (e) {
+        actions.push({ model, action: 'wake-failed', vmName: sleeping[0].vmName, error: e.message });
+        console.error(`[reconcile] wake failed for ${sleeping[0].vmName}:`, e.message);
+      }
     } else {
       const repoUrl = `https://github.com/${process.env.GH_REPO_OWNER}/${process.env.GH_REPO_NAME}.git`;
-      const vmName = await spinNewAgent({ repoUrl, model });
-      console.log(`[reconcile] spun ${vmName} for ${model}`);
+      try {
+        const vmName = await spinNewAgent({ repoUrl, model });
+        actions.push({ model, action: 'spinning', vmName });
+        console.log(`[reconcile] spun ${vmName} for ${model}`);
+      } catch (e) {
+        // spinNewAgent's awaited steps (NIC create, location lookup) can throw.
+        // The fire-and-forget VM create can fail later — that won't reach here,
+        // but the NIC failure (subnet exhaustion) does.
+        actions.push({ model, action: 'spin-failed', error: e.message });
+        console.error(`[reconcile] spin failed for ${model}:`, e.message);
+      }
     }
   }
+  return actions;
 }
 
 let _running = false;
@@ -161,16 +188,22 @@ export async function reconcile() {
     const unclaimed = await listUnclaimedIssues();
     const statuses = allStatus();
 
-    // A VM is busy if it's actively working OR holds an unexpired hint.
-    // Only RUNNING VMs are assignable — a "starting" VM isn't polling
-    // next-task yet, so a hint would just expire unused.
+    // A VM is unassignable if it's actively working, holds an unexpired hint,
+    // OR is in a terminal/unavailable state (deallocating, auth-error,
+    // config-error, failed). Without the last category we'd race-assign to a
+    // VM that just hit idle-timeout: it's still powerState='running' for a
+    // few seconds while self_deallocate's 5-min wait runs, then it's gone.
     const busy = new Set();
+    const unavailable = new Set();
     for (const a of alive) {
       const st = statuses[a.vmName];
       if (st && BUSY_STATES.has(st.state)) busy.add(a.vmName);
+      if (st && UNAVAILABLE_STATES.has(st.state)) unavailable.add(a.vmName);
       if (hints.has(a.vmName)) busy.add(a.vmName);
     }
-    const free = alive.filter(a => a.powerState === 'running' && !busy.has(a.vmName));
+    const free = alive.filter(a =>
+      a.powerState === 'running' && !busy.has(a.vmName) && !unavailable.has(a.vmName)
+    );
 
     const assignedIssues = new Set(Array.from(hints.values()).map(h => h.issue));
     const newAssignments = [];
@@ -187,7 +220,8 @@ export async function reconcile() {
         needCapacity[issue.model] = (needCapacity[issue.model] || 0) + 1;
       }
     }
-    if (Object.keys(needCapacity).length) await ensureCapacity(needCapacity, agents);
+    let capacityActions = [];
+    if (Object.keys(needCapacity).length) capacityActions = await ensureCapacity(needCapacity, agents);
 
     lastRun = {
       at: new Date().toISOString(),
@@ -197,6 +231,7 @@ export async function reconcile() {
       freeCount: free.length,
       assigned: newAssignments,
       needCapacity,
+      capacityActions,
     };
   } catch (e) {
     console.error('[reconcile] error:', e.message);
