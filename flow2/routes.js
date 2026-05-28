@@ -10,7 +10,7 @@ import { fleetSnapshot } from './vmlist.js';
 import { buildSecretsResponse } from './secrets.js';
 import {
   listAgents, startExistingAgent, deallocateAgent, deleteAgent,
-  spinNewAgent, runShellCommand, cleanupOrphanedNics,
+  spinNewAgent, runShellCommand, cleanupOrphans,
 } from '../azure/vm.js';
 import { injectFiles, cleanFiles } from '../github/repo.js';
 import { retireStaleAgents } from './retirement.js';
@@ -249,8 +249,8 @@ flow2Router.get('/admin/reconcile/history', (_req, res) => {
   res.json({ runs: getReconcileHistory() });
 });
 
-flow2Router.post('/admin/cleanup-nics', requireAdminToken, async (_req, res) => {
-  try { res.json(await cleanupOrphanedNics()); }
+flow2Router.post('/admin/cleanup-orphans', requireAdminToken, async (_req, res) => {
+  try { res.json(await cleanupOrphans()); }
   catch (e) { res.status(500).json({ error: e.message }); }
 });
 

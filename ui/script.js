@@ -271,20 +271,26 @@ async function vmAction(name, action) {
     t.update(ing + ' ' + name + ' failed: ' + e.message, 'error', 8000);
   }
 }
-async function doCleanupNics() {
+async function doCleanupOrphans() {
   const ok = await showConfirm({
-    title: 'Cleanup orphan NICs',
-    body: 'Find NICs in the RG with our naming convention that are not attached to any VM, and delete them. Releases their subnet IPs.',
+    title: 'Cleanup orphan resources',
+    body: 'Sweep failed VMs (cascades NIC+disk), orphan NICs holding subnet IPs, and orphan OS disks left behind by old VM creates. Safe — only touches resources matching our agent naming and Purpose tag.',
     okLabel: 'Cleanup',
   });
   if (!ok) return;
-  const t = showToast('Scanning for orphan NICs…', { type: 'loading' });
+  const t = showToast('Scanning for orphan resources…', { type: 'loading' });
   try {
-    const r = await postAdmin('/admin/cleanup-nics');
-    const d = (r.deleted || []).length;
+    const r = await postAdmin('/admin/cleanup-orphans');
+    const d = r.deleted || { vms: [], nics: [], disks: [] };
+    const parts = [];
+    if (d.vms?.length) parts.push(d.vms.length + ' VM(s)');
+    if (d.nics?.length) parts.push(d.nics.length + ' NIC(s)');
+    if (d.disks?.length) parts.push(d.disks.length + ' disk(s)');
+    const total = (d.vms?.length || 0) + (d.nics?.length || 0) + (d.disks?.length || 0);
     const e = (r.errors || []).length;
-    t.update('Scanned ' + (r.scanned || 0) + ' NICs — deleted ' + d + (e ? ', ' + e + ' errors' : ''), e ? 'error' : 'success', 6000);
-    if (d > 0) setTimeout(() => location.reload(), 2000);
+    const msg = parts.length ? 'Deleted ' + parts.join(', ') : 'No orphans found';
+    t.update(msg + (e ? ' — ' + e + ' errors' : ''), e ? 'error' : 'success', 6000);
+    if (total > 0) setTimeout(() => location.reload(), 2000);
   } catch (e) {
     t.update('Cleanup failed: ' + e.message, 'error', 8000);
   }

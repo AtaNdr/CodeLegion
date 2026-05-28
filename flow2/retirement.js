@@ -6,7 +6,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { compute, network } from '../azure/clients.js';
 import { config } from '../config.js';
-import { listAgents, isDeallocated, cleanupOrphanedNics } from '../azure/vm.js';
+import { listAgents, isDeallocated, cleanupOrphans } from '../azure/vm.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -56,11 +56,13 @@ export async function retireStaleAgents() {
 
 async function sweep() {
   await retireStaleAgents().catch(e => console.error('[retirement] sweep failed:', e.message));
-  // Always also clean orphan NICs — cheap, and prevents the subnet-IP leak.
+  // Always also clean orphan VM/NIC/disk resources — cheap, prevents the
+  // subnet-IP leak and unbounded disk accumulation from failed creates.
   try {
-    const r = await cleanupOrphanedNics();
-    if (r.deleted.length) console.log(`[cleanup] removed ${r.deleted.length} orphan NIC(s):`, r.deleted.join(', '));
-  } catch (e) { console.error('[cleanup] orphan NIC sweep failed:', e.message); }
+    const r = await cleanupOrphans();
+    const v = r.deleted.vms.length, n = r.deleted.nics.length, d = r.deleted.disks.length;
+    if (v + n + d > 0) console.log(`[cleanup] removed orphans: vms=${v} nics=${n} disks=${d}`);
+  } catch (e) { console.error('[cleanup] orphan sweep failed:', e.message); }
 }
 
 export function startRetirementSweep() {
@@ -71,5 +73,5 @@ export function startRetirementSweep() {
   // First sweep after 60s, then on interval.
   setTimeout(() => sweep(), 60_000);
   setInterval(() => sweep(), intervalMs);
-  console.log(`[retirement] scheduled every ${intervalHours}h (+ orphan NIC cleanup)`);
+  console.log(`[retirement] scheduled every ${intervalHours}h (+ orphan resource cleanup)`);
 }

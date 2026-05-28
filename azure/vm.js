@@ -132,29 +132,116 @@ export function getVmCreateOutcomes() {
   return vmOutcomes.slice().reverse();  // newest first
 }
 
-// Find and delete NICs in the RG that match our naming convention but are
-// not attached to any VM. This catches orphans from failed VM creations
-// (NIC created, VM creation errored) that exhaust the subnet's IP pool.
-export async function cleanupOrphanedNics() {
+// Sweep up orphaned per-agent resources in the RG. Three categories:
+//
+//   1. Agent VMs in a Failed provisioning state. Deleting the VM cascades
+//      to the NIC and OS disk via deleteOption:'Delete' set at create time
+//      — the cleanest path. Belt-and-braces NIC delete still handled in (2).
+//   2. Orphan NICs (`*-nic` naming, no `virtualMachine` reference). Try a
+//      VM-delete on the stripped name first (in case a stale VM resource
+//      lingered and would cascade-drop the disk); fall back to deleting
+//      the NIC directly. Failure to release these leaks subnet IPs.
+//   3. Orphan OS disks (matching `agent-*` naming, `managedBy` null). Pre-
+//      `deleteOption` VMs leave these behind on delete.
+//
+// Response shape is broader than the old "nics only" — UI surfaces each
+// category separately.
+export async function cleanupOrphans() {
   const rg = config.resourceGroup;
-  if (!rg) return { scanned: 0, deleted: [], errors: [] };
-  const all = [];
-  for await (const n of network().networkInterfaces.list(rg)) all.push(n);
-  const deleted = [];
+  const empty = { vms: [], nics: [], disks: [] };
+  if (!rg) return { scanned: { vms: 0, nics: 0, disks: 0 }, deleted: empty, errors: [] };
+
+  const deleted = { vms: [], nics: [], disks: [] };
   const errors = [];
-  for (const nic of all) {
-    if (!nic.name || !/-nic$/.test(nic.name)) continue;  // only our convention
-    if (nic.virtualMachine) continue;                      // attached, skip
-    try {
-      console.log(`[cleanup] deleting orphan NIC ${nic.name}`);
-      await network().networkInterfaces.beginDeleteAndWait(rg, nic.name);
-      deleted.push(nic.name);
-    } catch (e) {
-      console.warn(`[cleanup] could not delete ${nic.name}:`, e.message);
-      errors.push({ name: nic.name, error: e.message });
+  const seenDeleted = new Set();  // dedupe across (1) and (2) cascade overlap
+
+  // 1) Failed agent VMs — cascade-delete.
+  let vmsScanned = 0;
+  try {
+    for await (const vm of compute().virtualMachines.list(rg)) {
+      vmsScanned++;
+      if (vm.tags?.Purpose !== 'coding-agent') continue;
+      let provState = '';
+      try {
+        const view = await compute().virtualMachines.instanceView(rg, vm.name);
+        provState = (view.statuses?.find(s => s.code?.startsWith('ProvisioningState/'))?.code || '').replace('ProvisioningState/', '');
+      } catch { /* ignore — fall through */ }
+      if (!/^failed$/i.test(provState)) continue;
+      try {
+        console.log(`[cleanup] deleting failed VM ${vm.name} (cascades NIC+disk)`);
+        await compute().virtualMachines.beginDeleteAndWait(rg, vm.name);
+        deleted.vms.push(vm.name);
+        seenDeleted.add(vm.name);
+      } catch (e) {
+        errors.push({ kind: 'vm', name: vm.name, error: e.message });
+      }
     }
+  } catch (e) {
+    errors.push({ kind: 'vm-list', error: e.message });
   }
-  return { scanned: all.length, deleted, errors };
+
+  // 2) Orphan NICs — VM cascade first, direct NIC delete fallback.
+  let nicsScanned = 0;
+  try {
+    const nics = [];
+    for await (const n of network().networkInterfaces.list(rg)) nics.push(n);
+    nicsScanned = nics.length;
+    for (const nic of nics) {
+      if (!nic.name || !/-nic$/.test(nic.name)) continue;
+      if (nic.virtualMachine) continue;                  // attached, skip
+      const vmName = nic.name.replace(/-nic$/, '');
+      if (seenDeleted.has(vmName)) continue;             // already cascaded
+      let cascaded = false;
+      try {
+        await compute().virtualMachines.beginDeleteAndWait(rg, vmName);
+        cascaded = true;
+        deleted.vms.push(vmName);
+        seenDeleted.add(vmName);
+        console.log(`[cleanup] cascaded delete via stale VM ${vmName}`);
+      } catch (e) {
+        if (!/NotFound|does not exist|ResourceNotFound/i.test(e.message)) {
+          errors.push({ kind: 'vm-cascade', name: vmName, error: e.message });
+        }
+      }
+      if (cascaded) continue;
+      try {
+        console.log(`[cleanup] deleting orphan NIC ${nic.name}`);
+        await network().networkInterfaces.beginDeleteAndWait(rg, nic.name);
+        deleted.nics.push(nic.name);
+      } catch (e) {
+        errors.push({ kind: 'nic', name: nic.name, error: e.message });
+      }
+    }
+  } catch (e) {
+    errors.push({ kind: 'nic-list', error: e.message });
+  }
+
+  // 3) Orphan disks — must match our naming and be unmanaged.
+  let disksScanned = 0;
+  try {
+    const disks = [];
+    for await (const d of compute().disks.list(rg)) disks.push(d);
+    disksScanned = disks.length;
+    for (const disk of disks) {
+      if (!disk.name || !disk.name.startsWith('agent-')) continue;
+      if (disk.managedBy) continue;                      // attached to a VM
+      try {
+        console.log(`[cleanup] deleting orphan disk ${disk.name}`);
+        await compute().disks.beginDeleteAndWait(rg, disk.name);
+        deleted.disks.push(disk.name);
+      } catch (e) {
+        errors.push({ kind: 'disk', name: disk.name, error: e.message });
+      }
+    }
+  } catch (e) {
+    errors.push({ kind: 'disk-list', error: e.message });
+  }
+
+  return {
+    scanned: { vms: vmsScanned, nics: nicsScanned, disks: disksScanned },
+    deleted,
+    errors,
+  };
 }
 
 // runCommand: synchronously execute a shell snippet on a RUNNING VM, return stdout.
@@ -308,11 +395,28 @@ export async function spinNewAgent({ repoUrl, model }) {
       const errMsg = (err && err.message) || String(err);
       recordOutcome({ vmName, model, at: new Date().toISOString(), status: 'failed', error: errMsg });
       console.error(`[vm] create failed for ${vmName}:`, errMsg);
+      // Prefer VM-delete: if Azure registered the VM resource before failing
+      // (very common with quota / image / capacity errors), this cascades to
+      // the NIC and OS disk via their deleteOption:'Delete'. A direct NIC
+      // delete on its own would leave the disk behind.
+      let cascaded = false;
+      try {
+        await compute().virtualMachines.beginDeleteAndWait(rg, vmName);
+        cascaded = true;
+        console.log(`[vm] cleaned up failed VM ${vmName} (cascaded NIC+disk)`);
+      } catch (e) {
+        if (!/NotFound|does not exist/i.test(e.message)) {
+          console.warn(`[vm] VM-delete fallback failed for ${vmName}:`, e.message);
+        }
+      }
+      if (cascaded) return;
       try {
         await network().networkInterfaces.beginDeleteAndWait(rg, `${vmName}-nic`);
         console.log(`[vm] cleaned up orphan NIC ${vmName}-nic after failed VM create`);
       } catch (e) {
-        console.warn(`[vm] could not clean orphan NIC ${vmName}-nic:`, e.message);
+        if (!/NotFound|does not exist/i.test(e.message)) {
+          console.warn(`[vm] could not clean orphan NIC ${vmName}-nic:`, e.message);
+        }
       }
     });
   return vmName;

@@ -20,8 +20,8 @@ export function renderDiscovery({ discovery, missing, topError }) {
   <summary><h2 style="display:inline-block; margin:0">Environment & discovery</h2></summary>
 
   <div class="card spread" style="margin-top:.5rem">
-    <span class="muted" style="font-size:.88rem">Infrastructure maintenance — orphan NICs hold subnet IPs after failed/old VM creations. Run if VM spin-up fails with "subnet does not have enough capacity".</span>
-    <button onclick="doCleanupNics()">Cleanup orphan NICs</button>
+    <span class="muted" style="font-size:.88rem">Infrastructure maintenance — sweeps failed VMs, orphan NICs (which hold subnet IPs), and orphan disks (which accrue cost). Run if VM spin-up fails with "subnet does not have enough capacity" or to reclaim leaked disks.</span>
+    <button onclick="doCleanupOrphans()">Cleanup orphan resources</button>
   </div>
 
   ${missing.length > 0 ? `

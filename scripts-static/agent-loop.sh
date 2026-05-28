@@ -398,13 +398,28 @@ while true; do
   fi
 
   log "Attempting to claim #$ISSUE_NUM (onboarding=$IS_ONBOARDING_TASK)"
+  remote_log "info" "claim attempt #$ISSUE_NUM onboarding=$IS_ONBOARDING_TASK"
+  # syncLabels() seeds only the static label set — `agent:<name>` claim
+  # labels are per-agent and do not exist on the repo unless we create
+  # them. Without this, gh issue edit --add-label returns 422 and the
+  # claim silently fails on every loop iteration. Idempotent: `gh label
+  # create` exits non-zero if the label already exists, swallowed by `|| true`.
+  gh label create "$CLAIM_LABEL" --color "ededed" --description "Claimed by $NAME" 2>/dev/null || true
   # Claim. Onboarding issues keep agent-ready (the gate finds them by the
   # agent:onboarding label); regular issues drop agent-ready on claim.
   if [[ "$IS_ONBOARDING_TASK" == "true" ]]; then
-    gh issue edit "$ISSUE_NUM" --add-label "$CLAIM_LABEL" 2>&1 | tee /tmp/claim.log || { log "Claim failed for #$ISSUE_NUM."; sleep 10; continue; }
+    if ! gh issue edit "$ISSUE_NUM" --add-label "$CLAIM_LABEL" 2>&1 | tee /tmp/claim.log; then
+      CLAIM_ERR=$(head -c 200 /tmp/claim.log 2>/dev/null | tr '\n' ' ')
+      log "Claim failed for #$ISSUE_NUM: $CLAIM_ERR"
+      remote_log "error" "claim failed #$ISSUE_NUM: $CLAIM_ERR"
+      sleep 10; continue
+    fi
   else
     if ! gh issue edit "$ISSUE_NUM" --add-label "$CLAIM_LABEL" --remove-label "agent-ready" 2>&1 | tee /tmp/claim.log; then
-      log "Claim failed for #$ISSUE_NUM."; sleep 10; continue
+      CLAIM_ERR=$(head -c 200 /tmp/claim.log 2>/dev/null | tr '\n' ' ')
+      log "Claim failed for #$ISSUE_NUM: $CLAIM_ERR"
+      remote_log "error" "claim failed #$ISSUE_NUM: $CLAIM_ERR"
+      sleep 10; continue
     fi
   fi
 
