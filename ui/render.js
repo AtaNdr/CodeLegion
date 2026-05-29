@@ -51,6 +51,7 @@ export function renderPage({ phase1, discovery, missing, topError, fleet, cost, 
     <a href="/cost/summary">/cost/summary</a> ·
     <a href="/api/discovery">/api/discovery</a> ·
     <a href="/health">/health</a>
+    <span id="logout-link"></span>
   </footer>
 
   <dialog id="timeline-modal">
@@ -66,6 +67,27 @@ export function renderPage({ phase1, discovery, missing, topError, fleet, cost, 
       <button type="button" onclick="resolveConfirm(false)">Cancel</button>
       <button type="button" id="confirm-ok-btn" class="primary" onclick="resolveConfirm(true)">Confirm</button>
     </div>
+  </dialog>
+
+  <dialog id="set-password-modal" style="max-width: 420px">
+    <form onsubmit="submitSetPassword(event); return false;">
+      <h2 style="margin-top:0">Set dashboard password</h2>
+      <p class="muted" style="margin:.25rem 0 .75rem 0">Stored as a scrypt hash in <code>DASHBOARD_PASSWORD_HASH</code> App Setting. Writing the App Setting will restart this Web App; existing sessions remain valid until cookie expiry (24h).</p>
+      <div style="display:grid; gap:.5rem">
+        <div>
+          <label for="set-pw-1" style="display:block; font-size:.85rem; color:var(--muted)">New password (min 8 chars)</label>
+          <input id="set-pw-1" type="password" autocomplete="new-password" required minlength="8">
+        </div>
+        <div>
+          <label for="set-pw-2" style="display:block; font-size:.85rem; color:var(--muted)">Repeat</label>
+          <input id="set-pw-2" type="password" autocomplete="new-password" required minlength="8">
+        </div>
+      </div>
+      <div class="row" style="justify-content:flex-end; gap:.5rem; margin-top:.75rem">
+        <button type="button" onclick="document.getElementById('set-password-modal').close()">Cancel</button>
+        <button type="submit" class="primary">Save</button>
+      </div>
+    </form>
   </dialog>
 
   <dialog id="uninstall-modal" style="max-width: 520px">

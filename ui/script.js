@@ -271,6 +271,49 @@ async function vmAction(name, action) {
     t.update(ing + ' ' + name + ' failed: ' + e.message, 'error', 8000);
   }
 }
+function showSetPasswordModal() {
+  document.getElementById('set-pw-1').value = '';
+  document.getElementById('set-pw-2').value = '';
+  document.getElementById('set-password-modal').showModal();
+}
+
+async function submitSetPassword(event) {
+  event.preventDefault();
+  const p1 = document.getElementById('set-pw-1').value;
+  const p2 = document.getElementById('set-pw-2').value;
+  if (p1 !== p2) { showToast('Passwords do not match', { type: 'error', duration: 4000 }); return; }
+  if (p1.length < 8) { showToast('Password must be at least 8 characters', { type: 'error', duration: 4000 }); return; }
+  document.getElementById('set-password-modal').close();
+  const t = showToast('Saving password…', { type: 'loading' });
+  try {
+    await postAdmin('/admin/dashboard-password', { password: p1 });
+    t.update('Password set. App Service will restart shortly. Existing session stays valid for 24h.', 'success', 8000);
+    setTimeout(() => loadAuthStatus(), 1500);
+  } catch (e) {
+    t.update('Save failed: ' + e.message, 'error', 8000);
+  }
+}
+
+async function loadAuthStatus() {
+  // Show a Logout link in the footer iff dashboard auth is configured.
+  try {
+    const r = await fetch('/admin/dashboard-password/status');
+    if (!r.ok) return;
+    const v = await r.json();
+    const host = document.getElementById('logout-link');
+    if (!host) return;
+    host.innerHTML = v.configured
+      ? ' · <a href="#" onclick="doLogout(event)">Sign out</a>'
+      : '';
+  } catch {}
+}
+
+async function doLogout(event) {
+  if (event) event.preventDefault();
+  try { await fetch('/logout', { method: 'POST' }); } catch {}
+  location.href = '/login';
+}
+
 function showUninstallModal() {
   const m = document.getElementById('uninstall-modal');
   m.querySelectorAll('input[name="scope"]').forEach(r => r.checked = false);
@@ -532,6 +575,9 @@ async function refreshFleetSection() {
   } catch { /* network blip — try again next tick */ }
 }
 setInterval(refreshFleetSection, 30000);
+
+// Surface the Sign-out link if dashboard auth is configured.
+loadAuthStatus();
 
 // Lazy-fetch version + update-available pill, populate the footer line.
 // Pill sits IN FRONT of the version so a fresh release catches the eye

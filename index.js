@@ -19,6 +19,11 @@ import { startRetirementSweep } from './flow2/retirement.js';
 import { startReconcileLoop } from './flow2/reconcile.js';
 import { getAppSetting, setAppSettings } from './azure/app-settings.js';
 import { getUpdateInfo } from './azure/self-update.js';
+import {
+  requireDashboardAuth, verifyPassword, setSessionCookie, clearSessionCookie,
+  isAuthConfigured,
+} from './flow2/auth.js';
+import { renderLoginPage } from './ui/sections/login.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -28,12 +33,46 @@ const app = express();
 // on /webhook and JSON parser on the rest.
 app.use('/webhook', express.raw({ type: '*/*', limit: '5mb' }));
 app.use(express.json({ limit: '5mb' }));
+app.use(express.urlencoded({ extended: false }));  // for /login form
 
-// Static: agent scripts tarball + individual scripts.
+// Static: agent scripts tarball + individual scripts. Mounted before auth
+// so agents (which have no cookie) can fetch them.
 app.use('/scripts', express.static(path.join(__dirname, 'scripts-static'), {
   fallthrough: true,
   dotfiles: 'ignore',
 }));
+
+// ---- Auth (dashboard login) --------------------------------------
+// Login routes are themselves public (they're how you get a cookie).
+app.get('/login', (req, res) => {
+  if (!isAuthConfigured()) return res.redirect('/');  // legacy open mode
+  res.type('text/html').send(renderLoginPage({ returnTo: req.query.return || '/' }));
+});
+
+app.post('/login', (req, res) => {
+  if (!isAuthConfigured()) return res.redirect('/');
+  const password = (req.body && req.body.password) || '';
+  const returnTo = (req.body && req.body.return) || '/';
+  if (verifyPassword(password, process.env.DASHBOARD_PASSWORD_HASH)) {
+    setSessionCookie(res);
+    return res.redirect(returnTo);
+  }
+  res.status(401).type('text/html').send(renderLoginPage({
+    error: 'Wrong password.',
+    returnTo,
+  }));
+});
+
+app.post('/logout', (_req, res) => {
+  clearSessionCookie(res);
+  res.redirect('/login');
+});
+
+// Everything mounted AFTER this middleware requires a valid session cookie,
+// EXCEPT the bypass list inside requireDashboardAuth (agent/*, webhook,
+// health, login, scripts). If DASHBOARD_PASSWORD_HASH is unset, the
+// middleware no-ops and the dashboard stays open (legacy behaviour).
+app.use(requireDashboardAuth);
 
 // ---- API ---------------------------------------------------------
 app.get('/health', (_req, res) => res.json({ ok: true, version: config.version }));

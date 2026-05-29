@@ -19,6 +19,8 @@ import { retireStaleAgents } from './retirement.js';
 import { selfUpdate } from '../azure/self-update.js';
 import { reconcile, getAssignment, clearHint, getReconcileState, recordPoll, getReconcileHistory } from './reconcile.js';
 import { isPaused, setPaused, getPauseState } from './pause.js';
+import { hashPassword, isAuthConfigured } from './auth.js';
+import { setAppSettings } from '../azure/app-settings.js';
 
 const BUSY_STATES = new Set(['claimed', 'planning', 'coding']);
 const CLEAR_HINT_STATES = new Set(['claimed', 'planning', 'coding', 'deallocating', 'auth-error', 'config-error']);
@@ -296,6 +298,28 @@ flow2Router.post('/admin/fleet/resume', requireAdminToken, async (_req, res) => 
 
 flow2Router.get('/admin/fleet/pause-state', (_req, res) => {
   res.json(getPauseState());
+});
+
+// Set or change the dashboard password. Writes DASHBOARD_PASSWORD_HASH to
+// App Settings (which triggers an App Service restart; we also update
+// process.env so the next request on this instance works without waiting).
+flow2Router.post('/admin/dashboard-password', requireAdminToken, async (req, res) => {
+  const password = (req.body && req.body.password) || '';
+  if (typeof password !== 'string' || password.length < 8) {
+    return res.status(400).json({ error: 'password must be at least 8 characters' });
+  }
+  try {
+    const hash = hashPassword(password);
+    await setAppSettings({ DASHBOARD_PASSWORD_HASH: hash });
+    process.env.DASHBOARD_PASSWORD_HASH = hash;
+    res.json({ ok: true, authConfigured: true, note: 'App Service will restart in ~10s; existing sessions remain valid until cookie expiry.' });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+flow2Router.get('/admin/dashboard-password/status', (_req, res) => {
+  res.json({ configured: isAuthConfigured() });
 });
 
 // Uninstall — three scopes. All pause the fleet up front (clean-repo via
