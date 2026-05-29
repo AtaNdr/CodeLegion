@@ -16,18 +16,8 @@ export function renderDiscovery({ discovery, missing, topError, setupInline = ''
   const nats = net?.natGateways || [];
 
   return `
-<details>
+<details data-no-refresh>
   <summary><h2 style="display:inline-block; margin:0">Environment & discovery</h2></summary>
-
-  <div class="card spread" style="margin-top:.5rem">
-    <span class="muted" style="font-size:.88rem">Infrastructure maintenance — sweeps failed VMs, orphan NICs (which hold subnet IPs), and orphan disks (which accrue cost). Run if VM spin-up fails with "subnet does not have enough capacity" or to reclaim leaked disks.</span>
-    <button onclick="doCleanupOrphans()">Cleanup orphan resources</button>
-  </div>
-
-  <div class="card spread" style="margin-top:.5rem; border-color: var(--err)">
-    <span class="muted" style="font-size:.88rem">Tear down CodeLegion — remove the agent-fleet files from the repo, wipe every Azure resource in the RG (except this Web App and its plan), or both. The fleet is paused first; you can re-install by re-running Flow 1.</span>
-    <button class="danger" onclick="showUninstallModal()">Uninstall…</button>
-  </div>
 
   ${missing.length > 0 ? `
     <div class="card err">
@@ -71,6 +61,16 @@ export function renderDiscovery({ discovery, missing, topError, setupInline = ''
         ? '<p class="empty">None found.</p>'
         : '<ul>' + nats.map(n => `<li><code>${escapeHtml(n.name)}</code></li>`).join('') + '</ul>'}
     </div>
+  </div>
+
+  <div class="card spread" style="margin-top:.75rem">
+    <span class="muted" style="font-size:.88rem">Infrastructure maintenance — sweeps failed VMs, orphan NICs (which hold subnet IPs), and orphan disks (which accrue cost). Run if VM spin-up fails with "subnet does not have enough capacity" or to reclaim leaked disks.</span>
+    <button onclick="doCleanupOrphans()">Cleanup orphan resources</button>
+  </div>
+
+  <div class="card spread" style="margin-top:.5rem; border-color: var(--err)">
+    <span class="muted" style="font-size:.88rem">Tear down CodeLegion — remove the agent-fleet files from the repo, wipe every Azure resource in the RG (except this Web App and its plan), or both. The fleet is paused first; you can re-install by re-running Infrastructure setup.</span>
+    <button class="danger" onclick="showUninstallModal()">Uninstall…</button>
   </div>
 
   ${setupInline ? `<div style="margin-top:1rem">${setupInline}</div>` : ''}

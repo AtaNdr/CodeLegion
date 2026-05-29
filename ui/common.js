@@ -91,4 +91,11 @@ export const STYLES = `
   .toast-info    { border-left-color: var(--info); }
   .spinner { width: 15px; height: 15px; border: 2px solid var(--border); border-top-color: var(--info); border-radius: 50%; animation: spin .7s linear infinite; flex-shrink: 0; }
   @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Update-available pill briefly pulses on first render, then settles. */
+  .update-pulse { animation: update-pulse 1s ease-in-out 0s 4; }
+  @keyframes update-pulse {
+    0%,100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--yellow) 50%, transparent); }
+    50%     { box-shadow: 0 0 0 6px color-mix(in srgb, var(--yellow) 0%,  transparent); }
+  }
 `;

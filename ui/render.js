@@ -37,7 +37,7 @@ export function renderPage({ phase1, discovery, missing, topError, fleet, cost, 
   <style>${STYLES}</style>
 </head><body>
 <main>
-  <h1>CodeLegion <span class="muted">v${escapeHtml(version || config.version)}</span></h1>
+  <h1>CodeLegion</h1>
   ${setupAtTop}
   ${fleetSection}
   ${costSection}

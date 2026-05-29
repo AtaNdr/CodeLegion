@@ -502,24 +502,6 @@ async function doInjectRepo() {
   }
 }
 
-async function doCleanRepo() {
-  const ok = await showConfirm({
-    title: 'Clean repo files',
-    body: 'Remove the always-overwrite contract files CodeLegion injected. Project files you may have edited (CONTEXT/ARCHITECTURE/DESIGN/LESSONS) are left alone.',
-    okLabel: 'Clean',
-    danger: true,
-  });
-  if (!ok) return;
-  const t = showToast('Cleaning repo files…', { type: 'loading' });
-  try {
-    const r = await postAdmin('/admin/clean-repo');
-    t.update('Repo files cleaned: ' + summarizeResults(r.results), 'success', 5000);
-    setTimeout(() => location.reload(), 2500);
-  } catch (e) {
-    t.update('Clean failed: ' + e.message, 'error', 8000);
-  }
-}
-
 // Persist <details data-persist> open/closed state across reloads so the
 // auto-refresh / post-action reload doesn't fight the user (e.g. Flow 1
 // re-collapsing every time you click Run once setup is complete).
@@ -543,6 +525,8 @@ setInterval(() => {
 }, 30000);
 
 // Lazy-fetch version + update-available pill, populate the footer line.
+// Pill sits IN FRONT of the version so a fresh release catches the eye
+// before the v-number; pulses for 5s on first appearance, then settles.
 (async function loadVersionInfo() {
   const el = document.getElementById('version-line');
   if (!el) return;
@@ -550,16 +534,21 @@ setInterval(() => {
     const r = await fetch('/api/version');
     if (!r.ok) return;
     const v = await r.json();
-    let html = 'v' + (v.version || '?');
-    if (v.commit) html += ' · ' + v.commit.slice(0, 7);
+    let prefix = '';
+    let suffix = '';
     if (v.update?.hasUpdate && v.update.latestVersion) {
       const href = v.update.latestHtmlUrl || '#';
-      html += ' · <a href="' + href + '" target="_blank" rel="noopener"><span class="pill pill-yellow">Update available: ' + v.update.latestVersion + '</span></a>';
-      html += ' <button class="primary" style="margin-left:.5rem; padding:.15rem .6rem; font-size:.8rem" onclick="doSelfUpdate()">Update now</button>';
+      prefix = '<a href="' + href + '" target="_blank" rel="noopener"><span class="pill pill-yellow update-pulse">Update available: ' + v.update.latestVersion + '</span></a> ';
+      suffix = ' <button class="primary" style="margin-left:.5rem; padding:.15rem .6rem; font-size:.8rem" onclick="doSelfUpdate()">Update now</button>';
     } else if (v.update?.latestVersion) {
-      html += ' · <span class="muted">latest: ' + v.update.latestVersion + '</span>';
+      suffix = ' · <span class="muted">latest: ' + v.update.latestVersion + '</span>';
     }
+    let html = prefix + 'v' + (v.version || '?');
+    if (v.commit) html += ' · ' + v.commit.slice(0, 7);
+    html += suffix;
     el.innerHTML = html;
+    // Strip the pulse class after ~5s so it doesn't loop forever.
+    setTimeout(() => el.querySelectorAll('.update-pulse').forEach(n => n.classList.remove('update-pulse')), 5000);
   } catch {}
 })();
 `;
