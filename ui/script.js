@@ -515,14 +515,23 @@ async function doInjectRepo() {
   });
 })();
 
-// Auto-refresh every 30s, but skip while any <dialog> is open. Modal flows
-// (Configure App, log/timeline viewer) take longer than 30s; reloading
-// mid-flow would destroy the user's input.
-setInterval(() => {
+// Auto-refresh every 30s — only the fleet section. The rest of the page
+// (Environment & discovery, Infrastructure setup, Cost) is static enough
+// that full reloads would flicker for no benefit. Modal/loading guards
+// keep an in-flight action from being clobbered.
+async function refreshFleetSection() {
   if (document.querySelector('dialog[open]')) return;
-  if (document.querySelector('.toast-loading')) return;  // don't interrupt an in-flight action
-  location.reload();
-}, 30000);
+  if (document.querySelector('.toast-loading')) return;
+  const host = document.getElementById('fleet-container');
+  if (!host) return;
+  try {
+    const r = await fetch('/fleet/section', { cache: 'no-store' });
+    if (!r.ok) return;
+    const html = await r.text();
+    host.innerHTML = html;
+  } catch { /* network blip — try again next tick */ }
+}
+setInterval(refreshFleetSection, 30000);
 
 // Lazy-fetch version + update-available pill, populate the footer line.
 // Pill sits IN FRONT of the version so a fresh release catches the eye

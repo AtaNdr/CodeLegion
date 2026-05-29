@@ -16,7 +16,7 @@ export function renderDiscovery({ discovery, missing, topError, setupInline = ''
   const nats = net?.natGateways || [];
 
   return `
-<details data-no-refresh>
+<details>
   <summary><h2 style="display:inline-block; margin:0">Environment & discovery</h2></summary>
 
   ${missing.length > 0 ? `

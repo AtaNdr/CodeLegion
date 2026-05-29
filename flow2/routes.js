@@ -7,6 +7,7 @@ import { appendCostRecord, buildCostRecord, todayMonthTotals, readRecent } from 
 import { appendAgentLog, readAgentLog } from './logs.js';
 import { recordStatus, appendTimelineLines, readTimeline } from './activity.js';
 import { fleetSnapshot } from './vmlist.js';
+import { renderFleet } from '../ui/sections/fleet.js';
 import { buildSecretsResponse } from './secrets.js';
 import {
   listAgents, startExistingAgent, deallocateAgent, deleteAgent,
@@ -153,6 +154,19 @@ flow2Router.get('/cost/summary', (_req, res) => {
 flow2Router.get('/fleet', async (_req, res) => {
   try { res.json(await fleetSnapshot()); }
   catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Rendered HTML fragment for the dashboard's fleet section. The client
+// polls this every 30s and innerHTML-swaps the fleet container, instead
+// of reloading the whole page (which makes Environment & discovery flicker
+// every refresh and resets the user's scroll/selection).
+flow2Router.get('/fleet/section', async (_req, res) => {
+  try {
+    const snap = await fleetSnapshot();
+    res.type('text/html').send(renderFleet(snap));
+  } catch (e) {
+    res.status(500).type('text/html').send(`<div class="card err"><strong>Fleet error:</strong> ${String(e.message || e).replace(/[<>&]/g, '')}</div>`);
+  }
 });
 
 flow2Router.get('/admin/vm/:name/timeline', (req, res) => {

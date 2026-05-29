@@ -39,7 +39,7 @@ export function renderPage({ phase1, discovery, missing, topError, fleet, cost, 
 <main>
   <h1>CodeLegion</h1>
   ${setupAtTop}
-  ${fleetSection}
+  <div id="fleet-container">${fleetSection}</div>
   ${costSection}
   ${discoverySection}
   <footer>
