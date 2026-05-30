@@ -18,19 +18,16 @@ Expect an acknowledgement within 72 hours and a remediation plan within 14 days 
 
 CodeLegion runs as a single-instance Azure Web App that:
 
-- Holds **all secrets** in its own App Settings: `ANTHROPIC_API_KEY`, `GH_APP_PRIVATE_KEY` (PEM), `GH_WEBHOOK_SECRET`, `REPORT_TOKEN`, and optionally `DASHBOARD_PASSWORD_HASH`.
+- Holds **all secrets** in its own App Settings: `ANTHROPIC_API_KEY`, `GH_APP_PRIVATE_KEY` (PEM), `GH_WEBHOOK_SECRET`, `REPORT_TOKEN`.
 - Mints **short-lived GitHub installation tokens** per request; the GitHub App private key never leaves the controller.
 - Exposes **agent endpoints** at `/agent/*` gated by `Authorization: Bearer REPORT_TOKEN`. The agent VMs receive `REPORT_TOKEN` in cloud-init, so anyone with `Microsoft.Compute/virtualMachines/read` on the resource group can read it.
 - Verifies **GitHub webhook signatures** with `GH_WEBHOOK_SECRET` (HMAC-SHA256).
 
 ## Dashboard authentication
 
-The `/status` dashboard is **not authenticated by default** to preserve backward compatibility with existing private deployments. **Before exposing your deployment publicly,** do one of:
+The `/status` dashboard has **no built-in authentication yet**. Before exposing your deployment publicly, enable **Azure App Service Easy Auth** with your preferred identity provider (Microsoft / GitHub / Google / custom OIDC) — Azure portal → your Web App → Authentication → Add identity provider. Easy Auth fronts every request before the controller sees it, so unauthenticated users never reach the dashboard.
 
-1. **Set `DASHBOARD_PASSWORD_HASH`** — produced by `node scripts/hash-password.mjs '<password>'` and pasted into App Settings, or set via the "Set dashboard password" button in the dashboard's Environment & discovery panel.
-2. **Enable Azure App Service Easy Auth** with your preferred identity provider (Microsoft / GitHub / Google / custom OIDC).
-
-When `DASHBOARD_PASSWORD_HASH` is set, all dashboard and admin routes require a signed session cookie (`HttpOnly`, `Secure`, `SameSite=Lax`, 24h TTL). `/health`, `/webhook`, `/agent/*`, `/scripts/*`, and the `/login` flow itself remain public (their own auth model applies).
+A built-in password-based login is on the roadmap and tracked on a feature branch; until then, treat any deployment without Easy Auth as private.
 
 ## Known footguns
 

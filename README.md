@@ -19,7 +19,7 @@ A self-bootstrapping fleet of Claude Code agents that picks up labeled GitHub is
 - **Personalities.** Each agent picks its own name, emoji, and voice on first boot. Distinct PRs, easier reviewing.
 - **Per-VM live activity.** Each agent's current state and history visible in the dashboard. Source of truth lives on the VM; controller is a display cache.
 - **GitHub App auth.** No personal tokens. Short-lived installation tokens minted per request; the private key never leaves the controller.
-- **Live status page.** `/status` on the Web App — setup wizard first, fleet dashboard once setup is green. Auto-refreshes only the Fleet section (the rest stays stable). Dark-mode aware. Optional password gate (see *Security*).
+- **Live status page.** `/status` on the Web App — setup wizard first, fleet dashboard once setup is green. Auto-refreshes only the Fleet section (the rest stays stable). Dark-mode aware.
 - **Cost tracked end-to-end.** Per-task and per-month totals from token usage. Pricing.json ships in the release; override via App Setting if you want.
 - **Clean uninstall.** Remove the agent-fleet files from your repo, wipe every Azure resource in the RG (except this Web App and its plan), or both — from the dashboard.
 
@@ -59,9 +59,9 @@ codelegion/
 ├── flow1/                Setup-wizard checks, runner, routes, fixers.
 ├── flow2/                Webhook, cost, logs, activity, secrets endpoint,
 │                         VM list, retirement sweep, reconcile loop,
-│                         fleet pause/resume, dashboard auth.
+│                         fleet pause/resume.
 ├── ui/                   HTML render + per-section templates + inline JS.
-├── scripts/              Operator helpers (release.sh, hash-password.mjs).
+├── scripts/              Operator helpers (release.sh).
 ├── scripts-static/       Agent shell scripts served at /scripts/*.
 └── repo-template/        Files injected into target repos via Contents API.
 ```
@@ -69,7 +69,7 @@ codelegion/
 ## Architecture at a glance
 
 - **One Web App = one fleet = one GitHub repo.** Multi-repo support deferred.
-- **Web App holds all state and secrets.** Anthropic API key, GitHub App PEM, webhook secret, report token, optional dashboard password hash — all live in the Web App's own App Settings. No Key Vault. No storage account.
+- **Web App holds all state and secrets.** Anthropic API key, GitHub App PEM, webhook secret, report token — all live in the Web App's own App Settings. No Key Vault. No storage account.
 - **Persistent disk only.** Cost log, activity timelines, raw VM logs, setup state, and the fleet pause flag live in `/home/data/` on the Web App's persistent disk. Single-instance only by design.
 - **VMs have no Azure access.** They fetch secrets from the controller via `GET /agent/secrets` (Bearer REPORT_TOKEN). The GitHub App private key never leaves the controller — it mints fresh installation tokens per call.
 - **History on the VM.** Each agent writes `/var/lib/agent/activity.jsonl` locally and pushes new lines on every state change plus a 10s heartbeat. Controller cache lives at `/home/data/activity/{vm}.jsonl`.
@@ -88,8 +88,7 @@ See [`PLAN.md`](./PLAN.md) for the full design spec.
 
 This is critical before publishing your deployed instance:
 
-- **Dashboard auth is opt-in.** Set `DASHBOARD_PASSWORD_HASH` (App Settings) to a `scrypt:salt:hash` produced by `node scripts/hash-password.mjs '<password>'`, or use the "Set dashboard password" button in Environment & discovery. Without this, `/status` is open to anyone with the URL.
-- **Alternative: App Service Easy Auth.** If you'd rather SSO with Microsoft / GitHub / Google, flip Easy Auth on in the Azure portal. CodeLegion's middleware no-ops when its own auth isn't configured, so Easy Auth fronts cleanly.
+- **`/status` has no built-in auth yet.** Anyone reaching the URL has full control of the fleet. Before exposing your instance, gate it with **Azure App Service Easy Auth** (Azure portal → Authentication → add identity provider — Microsoft, GitHub, Google, or custom OIDC). A built-in password option is on the roadmap.
 - **Agents authenticate to the controller with `REPORT_TOKEN`.** This token rides in the VM's cloud-init; anyone with VM-read on the RG can see it. Token scope is narrow (`/agent/log`, `/agent/status`, `/agent/sync`, `/agent/secrets`) but worth knowing.
 - **GitHub App, not PATs.** The App's private key never leaves the controller. Installation tokens are minted per request and never reach a VM.
 - **Found a security issue?** See [`SECURITY.md`](./SECURITY.md).

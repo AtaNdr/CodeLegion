@@ -64,11 +64,6 @@ export function renderDiscovery({ discovery, missing, topError, setupInline = ''
   </div>
 
   <div class="card spread" style="margin-top:.75rem">
-    <span class="muted" style="font-size:.88rem">Dashboard auth — gate <code>/status</code> and admin actions behind a password. Required before publishing this instance. Without a password, anyone reaching the URL has full control.</span>
-    <button onclick="showSetPasswordModal()">Set dashboard password</button>
-  </div>
-
-  <div class="card spread" style="margin-top:.5rem">
     <span class="muted" style="font-size:.88rem">Infrastructure maintenance — sweeps failed VMs, orphan NICs (which hold subnet IPs), and orphan disks (which accrue cost). Run if VM spin-up fails with "subnet does not have enough capacity" or to reclaim leaked disks.</span>
     <button onclick="doCleanupOrphans()">Cleanup orphan resources</button>
   </div>

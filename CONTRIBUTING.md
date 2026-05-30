@@ -30,7 +30,7 @@ You can boot the controller without Azure credentials — it'll log missing conf
 
 - New external dependencies in `package.json`.
 - Multi-instance / horizontal scaling changes (explicitly out of scope — see `PLAN.md`).
-- Authentication providers beyond password + Easy Auth (we have one of each; add a new one only if it solves a real problem).
+- New authentication providers in the controller (Easy Auth covers SSO; a built-in password is in-flight on a feature branch — coordinate with the maintainer before proposing more).
 
 ## Filing security issues
 
