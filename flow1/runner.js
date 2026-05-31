@@ -50,7 +50,11 @@ export function getResults() {
 
 export function summarize(results) {
   let red = 0, yellow = 0, green = 0, unknown = 0, skipped = 0;
-  for (const c of checks) {
+  // Only required (non-optional) checks count toward total / allDone. The
+  // optional configuration rows (auth, vmConfig, pricing) still appear in
+  // the table but never block setup completion.
+  const required = checks.filter(c => !c.optional);
+  for (const c of required) {
     const r = results[c.id];
     const status = r?.status || 'unknown';
     // A yellow row with fixable=false is genuinely skipped (e.g. branch
@@ -63,9 +67,9 @@ export function summarize(results) {
     else unknown++;
   }
   return {
-    red, yellow, green, unknown, skipped, total: checks.length,
-    allGreen: green === checks.length,
-    // Setup is "done" when every row is either green or explicitly skipped.
-    allDone: (green + skipped) === checks.length,
+    red, yellow, green, unknown, skipped, total: required.length,
+    allGreen: green === required.length,
+    // Setup is "done" when every required row is either green or explicitly skipped.
+    allDone: (green + skipped) === required.length,
   };
 }

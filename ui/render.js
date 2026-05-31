@@ -70,6 +70,47 @@ export function renderPage({ phase1, discovery, missing, topError, fleet, cost, 
     </div>
   </dialog>
 
+  <dialog id="vm-config-modal" style="max-width: 460px">
+    <form onsubmit="submitVmConfig(event); return false;">
+      <h2 style="margin-top:0">VM sizes per model</h2>
+      <p class="muted" style="margin:.25rem 0 .75rem 0">Override the default Azure VM size used when spinning each model's agent. Saves to <code>VM_SIZE_HAIKU</code> / <code>VM_SIZE_SONNET</code> / <code>VM_SIZE_OPUS</code> App Settings. Existing running agents keep their current size; the change applies to the next spin.</p>
+      <div style="display:grid; gap:.5rem">
+        <div>
+          <label for="vm-size-haiku" style="display:block; font-size:.85rem; color:var(--muted)">haiku</label>
+          <input id="vm-size-haiku" type="text" placeholder="Standard_D2as_v4" autocomplete="off">
+        </div>
+        <div>
+          <label for="vm-size-sonnet" style="display:block; font-size:.85rem; color:var(--muted)">sonnet</label>
+          <input id="vm-size-sonnet" type="text" placeholder="Standard_D2as_v4" autocomplete="off">
+        </div>
+        <div>
+          <label for="vm-size-opus" style="display:block; font-size:.85rem; color:var(--muted)">opus</label>
+          <input id="vm-size-opus" type="text" placeholder="Standard_D4as_v4" autocomplete="off">
+        </div>
+      </div>
+      <p class="muted" style="font-size:.8rem; margin-top:.5rem">Leave a field blank to keep its current value. Common sizes: <code>Standard_D2as_v4</code>, <code>Standard_D4as_v4</code>, <code>Standard_D8as_v4</code>.</p>
+      <div class="row" style="justify-content:flex-end; gap:.5rem; margin-top:.75rem">
+        <button type="button" onclick="document.getElementById('vm-config-modal').close()">Cancel</button>
+        <button type="submit" class="primary">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="pricing-modal" style="max-width: 640px">
+    <form onsubmit="submitPricing(event); return false;">
+      <h2 style="margin-top:0">Anthropic pricing</h2>
+      <p class="muted" style="margin:.25rem 0 .5rem 0">Override the bundled <code>pricing.json</code>. Paste a JSON object with <code>models.<name>.{input, output, cacheRead, cacheWrite5m}</code> in $/MTok. Saves to the <code>PRICING_JSON</code> App Setting. Used immediately for cost calculations.</p>
+      <textarea id="pricing-json" required spellcheck="false" style="min-height:240px; width:100%; font: .8rem ui-monospace, monospace"></textarea>
+      <div class="row" style="justify-content:space-between; gap:.5rem; margin-top:.75rem">
+        <button type="button" class="danger" onclick="clearPricing()">Clear override (revert to bundled)</button>
+        <div class="row" style="gap:.5rem">
+          <button type="button" onclick="document.getElementById('pricing-modal').close()">Cancel</button>
+          <button type="submit" class="primary">Save</button>
+        </div>
+      </div>
+    </form>
+  </dialog>
+
   <dialog id="uninstall-modal" style="max-width: 520px">
     <form onsubmit="submitUninstall(event); return false;">
       <h2 style="margin-top:0">Uninstall CodeLegion</h2>

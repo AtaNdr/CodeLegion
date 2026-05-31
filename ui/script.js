@@ -271,6 +271,85 @@ async function vmAction(name, action) {
     t.update(ing + ' ' + name + ' failed: ' + e.message, 'error', 8000);
   }
 }
+function showVmConfigModal() {
+  ['haiku', 'sonnet', 'opus'].forEach(m => { const el = document.getElementById('vm-size-' + m); if (el) el.value = ''; });
+  document.getElementById('vm-config-modal').showModal();
+}
+
+async function submitVmConfig(event) {
+  event.preventDefault();
+  const body = {};
+  for (const m of ['haiku', 'sonnet', 'opus']) {
+    const v = document.getElementById('vm-size-' + m).value.trim();
+    if (v) body[m] = v;
+  }
+  if (Object.keys(body).length === 0) {
+    showToast('Enter at least one size', { type: 'error', duration: 4000 });
+    return;
+  }
+  document.getElementById('vm-config-modal').close();
+  const t = showToast('Saving VM sizes…', { type: 'loading' });
+  try {
+    const r = await postAdmin('/admin/vm-config', body);
+    const keys = Object.keys(r.patch || {}).map(k => k.replace('VM_SIZE_', '').toLowerCase()).join(', ');
+    t.update('Saved: ' + keys + '. App Service will restart.', 'success', 6000);
+    setTimeout(() => location.reload(), 1800);
+  } catch (e) {
+    t.update('Save failed: ' + e.message, 'error', 8000);
+  }
+}
+
+async function showPricingModal() {
+  const ta = document.getElementById('pricing-json');
+  ta.value = 'loading…';
+  document.getElementById('pricing-modal').showModal();
+  try {
+    const r = await fetch('/admin/pricing');
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const v = await r.json();
+    const editable = { ...v };
+    delete editable._source;
+    ta.value = JSON.stringify(editable, null, 2);
+  } catch (e) {
+    ta.value = '{ "models": {} }';
+    showToast('Could not load current pricing: ' + e.message, { type: 'error', duration: 6000 });
+  }
+}
+
+async function submitPricing(event) {
+  event.preventDefault();
+  const ta = document.getElementById('pricing-json');
+  const raw = ta.value;
+  try { JSON.parse(raw); } catch (e) { showToast('Invalid JSON: ' + e.message, { type: 'error', duration: 6000 }); return; }
+  document.getElementById('pricing-modal').close();
+  const t = showToast('Saving pricing override…', { type: 'loading' });
+  try {
+    const r = await postAdmin('/admin/pricing-override', { json: raw });
+    t.update('Pricing override saved (' + (r.models || 0) + ' models)', 'success', 5000);
+    setTimeout(() => location.reload(), 1500);
+  } catch (e) {
+    t.update('Save failed: ' + e.message, 'error', 8000);
+  }
+}
+
+async function clearPricing() {
+  const ok = await showConfirm({
+    title: 'Clear pricing override',
+    body: 'Revert to the bundled pricing.json. Cost calculations switch back immediately.',
+    okLabel: 'Clear',
+  });
+  if (!ok) return;
+  document.getElementById('pricing-modal').close();
+  const t = showToast('Clearing pricing override…', { type: 'loading' });
+  try {
+    await postAdmin('/admin/pricing-override', { json: null });
+    t.update('Override cleared. Bundled pricing in use.', 'success', 5000);
+    setTimeout(() => location.reload(), 1500);
+  } catch (e) {
+    t.update('Clear failed: ' + e.message, 'error', 8000);
+  }
+}
+
 function showUninstallModal() {
   const m = document.getElementById('uninstall-modal');
   m.querySelectorAll('input[name="scope"]').forEach(r => r.checked = false);

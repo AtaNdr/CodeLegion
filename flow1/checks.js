@@ -5,11 +5,27 @@
 //
 // Status values: green | yellow | red | unknown.
 
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { config } from '../config.js';
 import { discoverResourceGroup, discoverNetwork } from '../azure/discovery.js';
 import { checkInstallation, listInstallationRepos } from '../github/install-check.js';
 import { getRepoFile, REQUIRED_LABELS, getBranchProtection } from '../github/repo.js';
 import { ghFetch, clearTokenCache } from '../github/app.js';
+import { getPricing } from '../anthropic/pricing.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+let _fleetCfg = null;
+function fleetCfg() {
+  if (!_fleetCfg) _fleetCfg = JSON.parse(fs.readFileSync(path.resolve(__dirname, '..', 'config.json'), 'utf8'));
+  return _fleetCfg;
+}
+function vmSizeFor(model) {
+  return process.env[`VM_SIZE_${model.toUpperCase()}`]
+    || fleetCfg().vmSize?.[model]
+    || 'Standard_D2as_v4';
+}
 
 export const checks = [
   {
@@ -286,6 +302,57 @@ export const checks = [
     },
   },
 ];
+
+// ---- Optional configuration rows ----------------------------------
+// Surface as additional rows in the Setup table so operators can adjust
+// them later via the same UI. `optional: true` excludes them from
+// summary totals so they never block allDone.
+
+checks.push(
+  {
+    id: 'auth',
+    label: 'Dashboard authentication',
+    category: 'config',
+    optional: true,
+    async run() {
+      // Placeholder until the three-mode chooser ships. See
+      // auth/IMPLEMENTATION-PLAN.md for the design.
+      return {
+        status: 'yellow',
+        detail: 'Not implemented yet — see auth/IMPLEMENTATION-PLAN.md. The dashboard is currently open; gate /status with Azure App Service Easy Auth before exposing publicly.',
+        fixable: false,
+      };
+    },
+  },
+  {
+    id: 'vmConfig',
+    label: 'VM sizes per model',
+    category: 'config',
+    optional: true,
+    async run() {
+      const h = vmSizeFor('haiku'), s = vmSizeFor('sonnet'), o = vmSizeFor('opus');
+      const overridden = !!(process.env.VM_SIZE_HAIKU || process.env.VM_SIZE_SONNET || process.env.VM_SIZE_OPUS);
+      return {
+        status: 'green',
+        detail: `haiku=${h} · sonnet=${s} · opus=${o}${overridden ? ' (overridden via App Settings)' : ' (bundled defaults)'}`,
+      };
+    },
+  },
+  {
+    id: 'pricing',
+    label: 'Anthropic pricing',
+    category: 'config',
+    optional: true,
+    async run() {
+      const p = getPricing();
+      const models = Object.keys(p.models || {}).length;
+      if (p._source === 'override') {
+        return { status: 'green', detail: `Override active — ${models} model(s) priced via PRICING_JSON App Setting` };
+      }
+      return { status: 'green', detail: `Using bundled pricing.json — ${models} model(s)${p._lastVerified ? ' · verified ' + p._lastVerified.slice(0, 10) : ''}` };
+    },
+  },
+);
 
 export function checkById(id) {
   return checks.find(c => c.id === id);

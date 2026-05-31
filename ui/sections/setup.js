@@ -37,6 +37,17 @@ export function renderSetup({ results, summary }, { inline = false } = {}) {
     if (c.id === 'githubApp' && status !== 'green') {
       actions.push(`<button onclick="showGithubConfigModal()">Configure App</button>`);
     }
+    // Optional configuration rows: always-on Edit button + a "Plan" link
+    // for the auth row (it points at the implementation plan in /auth).
+    if (c.id === 'vmConfig') {
+      actions.push(`<button class="primary" onclick="showVmConfigModal()">Edit</button>`);
+    }
+    if (c.id === 'pricing') {
+      actions.push(`<button class="primary" onclick="showPricingModal()">Edit</button>`);
+    }
+    if (c.id === 'auth') {
+      actions.push(`<a class="muted" href="https://github.com/AtaNdr/CodeLegion/blob/main/auth/IMPLEMENTATION-PLAN.md" target="_blank" rel="noopener" style="text-decoration:none"><button>Plan ↗</button></a>`);
+    }
 
     return `
       <tr>

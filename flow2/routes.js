@@ -19,6 +19,8 @@ import { retireStaleAgents } from './retirement.js';
 import { selfUpdate } from '../azure/self-update.js';
 import { reconcile, getAssignment, clearHint, getReconcileState, recordPoll, getReconcileHistory } from './reconcile.js';
 import { isPaused, setPaused, getPauseState } from './pause.js';
+import { setAppSettings } from '../azure/app-settings.js';
+import { getPricing } from '../anthropic/pricing.js';
 
 const BUSY_STATES = new Set(['claimed', 'planning', 'coding']);
 const CLEAR_HINT_STATES = new Set(['claimed', 'planning', 'coding', 'deallocating', 'auth-error', 'config-error']);
@@ -296,6 +298,63 @@ flow2Router.post('/admin/fleet/resume', requireAdminToken, async (_req, res) => 
 
 flow2Router.get('/admin/fleet/pause-state', (_req, res) => {
   res.json(getPauseState());
+});
+
+// Edit VM sizes per model. Writes VM_SIZE_HAIKU/SONNET/OPUS App Settings;
+// also hot-sets process.env so spinNewAgent uses the new sizes immediately
+// without waiting for the App Service restart that follows the write.
+flow2Router.post('/admin/vm-config', requireAdminToken, async (req, res) => {
+  const body = req.body || {};
+  const patch = {};
+  for (const m of ['haiku', 'sonnet', 'opus']) {
+    const v = body[m];
+    if (typeof v === 'string' && v.trim()) {
+      if (!/^[A-Za-z0-9_]+$/.test(v.trim())) {
+        return res.status(400).json({ error: `invalid size for ${m}: ${v}` });
+      }
+      patch[`VM_SIZE_${m.toUpperCase()}`] = v.trim();
+    }
+  }
+  if (Object.keys(patch).length === 0) {
+    return res.status(400).json({ error: 'no sizes provided (expected haiku/sonnet/opus)' });
+  }
+  try {
+    await setAppSettings(patch);
+    for (const [k, v] of Object.entries(patch)) process.env[k] = v;
+    res.json({ ok: true, patch });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Set or clear the PRICING_JSON override. Body { json: "<stringified>" }
+// or { json: null|"" } to clear and revert to bundled.
+flow2Router.post('/admin/pricing-override', requireAdminToken, async (req, res) => {
+  const body = req.body || {};
+  if (body.json === null || body.json === '') {
+    try {
+      await setAppSettings({ PRICING_JSON: '' });
+      delete process.env.PRICING_JSON;
+      return res.json({ ok: true, cleared: true });
+    } catch (e) { return res.status(500).json({ error: e.message }); }
+  }
+  if (typeof body.json !== 'string') {
+    return res.status(400).json({ error: 'expected json: <stringified> or null to clear' });
+  }
+  try {
+    const parsed = JSON.parse(body.json);
+    if (!parsed || !parsed.models || typeof parsed.models !== 'object') {
+      return res.status(400).json({ error: 'parsed JSON must have a `models` object' });
+    }
+    await setAppSettings({ PRICING_JSON: body.json });
+    process.env.PRICING_JSON = body.json;
+    res.json({ ok: true, models: Object.keys(parsed.models).length });
+  } catch (e) {
+    res.status(400).json({ error: 'invalid JSON: ' + e.message });
+  }
+});
+
+// Read current pricing — for pre-filling the edit modal.
+flow2Router.get('/admin/pricing', (_req, res) => {
+  res.json(getPricing());
 });
 
 // Uninstall — three scopes. All pause the fleet up front (clean-repo via

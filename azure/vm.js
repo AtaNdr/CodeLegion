@@ -323,7 +323,13 @@ export async function spinNewAgent({ repoUrl, model }) {
 
   const vmName = `agent-${model}-${Date.now()}-${Math.floor(Math.random() * 9999)}`;
   const fleetCfg = getFleetConfig();
-  const vmSize = fleetCfg.vmSize?.[model] || fleetCfg.vmSize?.sonnet || 'Standard_D2as_v4';
+  // VM_SIZE_<MODEL> App Setting wins over config.json so operators can
+  // override sizes without redeploying the controller — driven by the
+  // "VM sizes per model" row in Infrastructure setup.
+  const vmSize = process.env[`VM_SIZE_${model.toUpperCase()}`]
+    || fleetCfg.vmSize?.[model]
+    || fleetCfg.vmSize?.sonnet
+    || 'Standard_D2as_v4';
 
   console.log(`[vm] spinning new ${vmName} (${model}, ${vmSize})`);
 
