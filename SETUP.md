@@ -17,6 +17,7 @@ Deploy CodeLegion to Azure in three steps. Estimated time: ~15 minutes for someo
 - [Day-to-day operations](#day-to-day-operations)
 - [Versions and updates](#versions-and-updates)
 - [Uninstalling](#uninstalling)
+- [FAQ](./FAQ.md)
 
 ---
 
