@@ -1,6 +1,6 @@
 # Frequently asked questions
 
-Grouped by topic. For step-by-step deployment, see [`SETUP.md`](./SETUP.md); for the architecture spec, see [`PLAN.md`](./PLAN.md).
+Grouped by topic. For step-by-step deployment, see [`SETUP.md`](../SETUP.md); for the architecture spec, see [`PLAN.md`](../PLAN.md).
 
 ---
 
@@ -41,7 +41,7 @@ Small teams (and individuals) who want unattended automation for a backlog of we
 
 ### Is it production-ready?
 
-Active and used in production on the maintainer's own projects. Single-instance by design (see [Architecture](#architecture-and-internals)). Some operator features are still in flight — see the project [Roadmap in the README](./README.md#roadmap).
+Active and used in production on the maintainer's own projects. Single-instance by design (see [Architecture](#architecture-and-internals)). Some operator features are still in flight — see the project [Roadmap in the README](../README.md#roadmap).
 
 ---
 
@@ -119,7 +119,7 @@ No. The claim is implemented as a GitHub label (`agent:<name>`). After a claim, 
 
 ### Is the dashboard exposed to the internet?
 
-By default, yes — the Web App is reachable at its `*.azurewebsites.net` URL with no authentication. **Before exposing publicly, gate it with Azure App Service Easy Auth** (Authentication → Add identity provider → Microsoft / GitHub / Google / OIDC). A built-in password gate is in active design — see [`auth/IMPLEMENTATION-PLAN.md`](./auth/IMPLEMENTATION-PLAN.md).
+By default, yes — the Web App is reachable at its `*.azurewebsites.net` URL with no authentication. **Before exposing publicly, gate it with Azure App Service Easy Auth** (Authentication → Add identity provider → Microsoft / GitHub / Google / OIDC). A built-in password gate is in active design — see [`auth/IMPLEMENTATION-PLAN.md`](../auth/IMPLEMENTATION-PLAN.md).
 
 ### Where are secrets stored?
 
@@ -267,7 +267,7 @@ They self-update: each idle poll cycle, the agent re-fetches its scripts from `/
 
 ### How do I downgrade?
 
-Push the older commit / tag through whatever deployment path you set up in [Step 3](./SETUP.md#step-3--deploy-this-repository). Agent shell scripts are served from the controller, so downgrading also downgrades the agents on the next self-update cycle.
+Push the older commit / tag through whatever deployment path you set up in [Step 3](../SETUP.md#step-3--deploy-this-repository). Agent shell scripts are served from the controller, so downgrading also downgrades the agents on the next self-update cycle.
 
 ### How do I rotate the Anthropic key?
 

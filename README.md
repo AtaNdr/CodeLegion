@@ -19,7 +19,7 @@ A self-orchestrating fleet of Claude Code agents that picks up labeled GitHub is
 - [Known limitations](#known-limitations)
 - [Repository layout](#repository-layout)
 - [Roadmap](#roadmap)
-- [FAQ](./FAQ.md)
+- [Documentation](./docs/) — FAQ, stakeholder overview
 - [Contributing](#contributing)
 - [License](#license)
 
