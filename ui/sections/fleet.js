@@ -47,7 +47,12 @@ function renderReconcile(reconcile) {
   }
   const when = lr.at ? new Date(lr.at).toLocaleTimeString() : '?';
   const unclaimed = (lr.unclaimed || []).map(i => `#${i.issue}${i.onboarding ? ' (onboarding)' : ''}·${i.model}`).join(', ') || 'none';
-  const liveAssigns = assigns.map(a => `#${escapeHtml(String(a.issue))}→${escapeHtml(a.vm)}`).join(', ') || 'none';
+  const liveAssigns = assigns.map(a => {
+    const target = a.agentName
+      ? `${a.agentEmoji ? escapeHtml(a.agentEmoji) + ' ' : ''}${escapeHtml(a.agentName)}`
+      : escapeHtml(a.vm);
+    return `#${escapeHtml(String(a.issue))}→${target}`;
+  }).join(', ') || 'none';
   const errLine = lr.error ? `<div class="err">reconcile error: ${escapeHtml(lr.error)}</div>` : '';
   const acts = lr.capacityActions || [];
   const actionsLine = acts.length
@@ -109,10 +114,19 @@ function renderAgentCard(a) {
 
   const canForceSync = ['running', 'starting'].includes(a.powerState);
 
+  // Prefer the agent's chosen identity (emoji + name) over the opaque Azure
+  // resource name. Falls back to vmName until the first /agent/status
+  // push lands.
+  const agentName = activity?.agentName || '';
+  const agentEmoji = activity?.agentEmoji || '';
+  const headline = agentName
+    ? `${agentEmoji ? escapeHtml(agentEmoji) + ' ' : ''}<strong>${escapeHtml(agentName)}</strong> <span class="muted" style="font-size:.78rem; font-weight:normal">${escapeHtml(a.vmName)}</span>`
+    : `<strong>${escapeHtml(a.vmName)}</strong>`;
+
   return `
 <div class="card" style="position:relative">
   <div class="spread" style="margin-bottom:.25rem">
-    <strong>${escapeHtml(a.vmName)}</strong>
+    <span>${headline}</span>
     <div class="row" style="gap:.25rem">
       ${pill(stateClass, a.powerState)}
       ${pill('unknown', a.model)}

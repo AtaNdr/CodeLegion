@@ -74,8 +74,12 @@ write_status() {
 push_status() {
   [[ -z "$CONTROLLER_URL" || -z "$REPORT_TOKEN" ]] && return 0
   local payload
-  payload=$(jq -nc --arg vm "$VM_NAME" --arg s "$1" --arg i "${2:-}" --arg sm "${3:-}" \
-    '{vmName:$vm, state:$s, issue:$i, summary:$sm}')
+  # Include the agent's chosen identity in every status push so the
+  # controller can show "Lyra (agent-sonnet-…6948)" instead of only the
+  # opaque Azure resource name. Controller stores it stickily — subsequent
+  # pushes can omit the field and the cached value stands.
+  payload=$(jq -nc --arg vm "$VM_NAME" --arg an "$NAME" --arg ae "$EMOJI" --arg s "$1" --arg i "${2:-}" --arg sm "${3:-}" \
+    '{vmName:$vm, agentName:$an, agentEmoji:$ae, state:$s, issue:$i, summary:$sm}')
   curl -sS -X POST "$CONTROLLER_URL/agent/status" \
     -H "Authorization: Bearer $REPORT_TOKEN" \
     -H "Content-Type: application/json" \
@@ -136,9 +140,9 @@ report_cost() {
   [[ "$input" == "0" && "$output" == "0" ]] && return 0
   local payload
   payload=$(jq -nc \
-    --arg a "$NAME" --arg m "$MODEL" --arg i "$issue_num" --arg k "$kind" \
+    --arg a "$NAME" --arg ae "$EMOJI" --arg m "$MODEL" --arg i "$issue_num" --arg k "$kind" \
     --argjson inp "$input" --argjson out "$output" --argjson cc "$cc" --argjson cr "$cr" --argjson d "$duration_seconds" \
-    '{agent:$a, model:$m, issue:$i, kind:$k, input:$inp, output:$out, cacheCreate:$cc, cacheRead:$cr, durationSeconds:$d}')
+    '{agent:$a, agentEmoji:$ae, model:$m, issue:$i, kind:$k, input:$inp, output:$out, cacheCreate:$cc, cacheRead:$cr, durationSeconds:$d}')
   curl -sS -X POST "$CONTROLLER_URL/cost/report" \
     -H "Authorization: Bearer $REPORT_TOKEN" -H "Content-Type: application/json" \
     -d "$payload" --max-time 30 &>/dev/null

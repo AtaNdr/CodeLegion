@@ -74,10 +74,19 @@ export function getPollTelemetry(vmName) {
 const isClaimLabel = (name) => name.startsWith('agent:') && !CLAIM_EXCEPTIONS.has(name);
 
 export function getReconcileState() {
+  // Enrich each assignment with the agent's friendly identity (if known)
+  // so the orchestrator card can render "#12 → 🐠 Lyra" instead of the
+  // opaque Azure resource name.
+  const live = allStatus();
   return {
     lastRun,
     assignments: Array.from(hints.entries()).map(([vm, h]) => ({
-      vm, issue: h.issue, onboarding: h.onboarding, ageSeconds: Math.round((Date.now() - h.at) / 1000),
+      vm,
+      agentName: live[vm]?.agentName || null,
+      agentEmoji: live[vm]?.agentEmoji || null,
+      issue: h.issue,
+      onboarding: h.onboarding,
+      ageSeconds: Math.round((Date.now() - h.at) / 1000),
     })),
     historyCount: runHistory.length,
     vmOutcomes: getVmCreateOutcomes().slice(0, 10),

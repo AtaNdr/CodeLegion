@@ -19,9 +19,20 @@ function fileFor(vmName) {
   return path.join(ACTIVITY_DIR, `${safe}.jsonl`);
 }
 
-export function recordStatus({ vmName, state, issue, summary, ts = new Date().toISOString() }) {
+export function recordStatus({ vmName, state, issue, summary, agentName, agentEmoji, ts = new Date().toISOString() }) {
   if (!vmName) return;
-  liveStatus.set(vmName, { state, issue: issue || null, summary: summary || null, updatedAt: ts });
+  // Sticky agent identity — once the agent has told us its chosen name and
+  // emoji, keep them across status updates that omit them. Lets old code
+  // paths in the agent loop keep working without mandatory rewrites.
+  const prev = liveStatus.get(vmName) || {};
+  liveStatus.set(vmName, {
+    state,
+    issue: issue || null,
+    summary: summary || null,
+    agentName: agentName || prev.agentName || null,
+    agentEmoji: agentEmoji || prev.agentEmoji || null,
+    updatedAt: ts,
+  });
 }
 
 export function appendTimelineLines(vmName, lines) {

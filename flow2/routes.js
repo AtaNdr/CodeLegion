@@ -3,7 +3,7 @@
 import express from 'express';
 import crypto from 'crypto';
 import { verifySignature } from './webhook.js';
-import { appendCostRecord, buildCostRecord, todayMonthTotals, readRecent } from './cost.js';
+import { appendCostRecord, buildCostRecord, todayMonthTotals, readRecent, commentCostOnIssue } from './cost.js';
 import { appendAgentLog, readAgentLog } from './logs.js';
 import { recordStatus, appendTimelineLines, readTimeline } from './activity.js';
 import { fleetSnapshot } from './vmlist.js';
@@ -87,9 +87,9 @@ flow2Router.get('/agent/logs/:name', (req, res) => {
 });
 
 flow2Router.post('/agent/status', requireReportToken, (req, res) => {
-  const { vmName, state, issue, summary } = req.body || {};
+  const { vmName, state, issue, summary, agentName, agentEmoji } = req.body || {};
   if (!vmName) return res.status(400).json({ error: 'vmName required' });
-  recordStatus({ vmName, state, issue, summary });
+  recordStatus({ vmName, state, issue, summary, agentName, agentEmoji });
   // Drop the assignment hint when the agent is genuinely working (busy is
   // now tracked by status) OR when it's leaving the pool (deallocating /
   // errored — assignment would never be picked up).
@@ -145,6 +145,10 @@ flow2Router.post('/cost/report', requireReportToken, (req, res) => {
   const record = buildCostRecord(req.body);
   appendCostRecord(record);
   res.json({ ok: true, cost: record.cost });
+  // Fire-and-forget: post a cost-summary comment on the issue. Failures
+  // are logged inside the helper; the response is already sent so a slow
+  // GitHub round-trip can't block the agent's next loop iteration.
+  commentCostOnIssue(record).catch(() => {});
 });
 
 flow2Router.get('/cost/summary', (_req, res) => {
