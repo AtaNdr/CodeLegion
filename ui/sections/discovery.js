@@ -20,32 +20,46 @@ const RESOURCE_LABELS = {
 };
 
 export function renderDiscovery({ discovery, missing, topError, setupInline = '' }) {
-  const { rg, network: net, netError, resourceCounts } = discovery;
+  const { rg, netError, resourceCounts } = discovery;
   const subDisplay = config.subscriptionId
     ? `<code>${escapeHtml(config.subscriptionId)}</code>`
     : '<span class="err">NOT SET</span>';
   const rgDisplay = rg
     ? `<code>${escapeHtml(rg.name)}</code>${rg.location ? ` in <code>${escapeHtml(rg.location)}</code>` : ''}${rg.error ? ` <span class="err">(${escapeHtml(rg.error)})</span>` : ''}`
     : '<em class="muted">not discovered</em>';
-  const vnets = net?.vnets || [];
-  const nsgs = net?.nsgs || [];
-  const nats = net?.natGateways || [];
 
-  // Resource count card — every resource in the RG, grouped by type.
+  // Unified resources view — every resource in the RG, grouped by type
+  // with names listed inline. Replaces the older split between three
+  // typed cards (VNets / NSGs / NATs) and a separate count table.
   const rc = resourceCounts || { total: 0, byType: [] };
-  const rcRows = (rc.byType || []).map(({ type, count }) => {
+  const rcRows = (rc.byType || []).map(({ type, count, items = [] }) => {
     const label = RESOURCE_LABELS[type] || type;
     const known = RESOURCE_LABELS[type] ? '' : ' <span class="muted" style="font-size:.78rem">(other)</span>';
-    return `<tr><td>${escapeHtml(label)}${known}</td><td style="text-align:right; font-variant-numeric: tabular-nums">${count}</td></tr>`;
+    const names = items.length === 0
+      ? '<span class="muted">—</span>'
+      : items.map(it => `<div style="font: .85em ui-monospace, monospace; padding: 1px 0">${escapeHtml(it.name || '?')}</div>`).join('');
+    return `<tr>
+      <td style="white-space:nowrap; vertical-align:top">${escapeHtml(label)}${known}</td>
+      <td style="text-align:right; vertical-align:top; font-variant-numeric: tabular-nums; padding-right:1rem">${count}</td>
+      <td style="vertical-align:top">${names}</td>
+    </tr>`;
   }).join('');
-  const resourceCountCard = `
+  const resourcesCard = `
     <div class="card" style="margin-top:.5rem">
       <h3>Resources in RG (${rc.total || 0})</h3>
       ${rc.error
         ? `<p class="err">${escapeHtml(rc.error)}</p>`
         : rc.total === 0
           ? '<p class="empty">None found.</p>'
-          : `<table>${rcRows}</table>`}
+          : `<table>
+              <thead><tr>
+                <th style="text-align:left">Type</th>
+                <th style="text-align:right; padding-right:1rem">Count</th>
+                <th style="text-align:left">Names</th>
+              </tr></thead>
+              <tbody>${rcRows}</tbody>
+            </table>`}
+      ${netError ? `<p class="err" style="margin-top:.5rem; font-size:.85rem">Network discovery failed: ${escapeHtml(netError)}</p>` : ''}
     </div>`;
 
   return `
@@ -69,34 +83,7 @@ export function renderDiscovery({ discovery, missing, topError, setupInline = ''
     </table>
   </div>
 
-  ${netError ? `<div class="card err"><strong>Network discovery failed:</strong> ${escapeHtml(netError)}</div>` : ''}
-  <div class="grid">
-    <div class="card">
-      <h3>Virtual networks (${vnets.length})</h3>
-      ${vnets.length === 0
-        ? '<p class="empty">None found.</p>'
-        : vnets.map(v => `
-            <p style="margin:.25rem 0"><code>${escapeHtml(v.name)}</code> · ${(v.addressSpace || []).map(escapeHtml).join(', ') || '?'}</p>
-            ${v.subnets?.length
-              ? `<ul>${v.subnets.map(s => `<li><code>${escapeHtml(s.name)}</code> ${escapeHtml(s.addressPrefix || '')}${s.nsg ? ' <span class="muted">· NSG</span>' : ''}${s.natGateway ? ' <span class="muted">· NAT</span>' : ''}</li>`).join('')}</ul>`
-              : '<p class="empty muted" style="margin:.25rem 0">No subnets.</p>'}
-          `).join('')}
-    </div>
-    <div class="card">
-      <h3>Network security groups (${nsgs.length})</h3>
-      ${nsgs.length === 0
-        ? '<p class="empty">None found.</p>'
-        : '<ul>' + nsgs.map(n => `<li><code>${escapeHtml(n.name)}</code></li>`).join('') + '</ul>'}
-    </div>
-    <div class="card">
-      <h3>NAT gateways (${nats.length})</h3>
-      ${nats.length === 0
-        ? '<p class="empty">None found.</p>'
-        : '<ul>' + nats.map(n => `<li><code>${escapeHtml(n.name)}</code></li>`).join('') + '</ul>'}
-    </div>
-  </div>
-
-  ${resourceCountCard}
+  ${resourcesCard}
 
   <div class="card spread" style="margin-top:.75rem">
     <span class="muted" style="font-size:.88rem">Infrastructure maintenance — sweeps failed VMs, orphan NICs (which hold subnet IPs), and orphan disks (which accrue cost). Run if VM spin-up fails with "subnet does not have enough capacity" or to reclaim leaked disks.</span>

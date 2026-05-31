@@ -62,23 +62,31 @@ export async function discoverNetwork() {
   };
 }
 
-// Count every resource in the RG, grouped by type. Cheap (one Resources
-// API call). Each entry is { type, count }, sorted by count descending.
-// `total` is the sum so the UI can show e.g. "12 resources" at a glance.
+// Inventory every resource in the RG, grouped by type. One Resources API
+// call. Each entry is { type, count, items: [{name, location, id}] };
+// the UI renders this as a single unified table replacing the older
+// VNet / NSG / NAT / "counts" cards.
 export async function discoverResourceCounts() {
   const rg = config.resourceGroup;
   if (!rg) return { total: 0, byType: [] };
-  const byTypeMap = new Map();
+  const groupMap = new Map();  // type → { count, items: [...] }
   try {
     for await (const r of resources().resources.listByResourceGroup(rg)) {
       const t = r.type || 'unknown';
-      byTypeMap.set(t, (byTypeMap.get(t) || 0) + 1);
+      let g = groupMap.get(t);
+      if (!g) { g = { count: 0, items: [] }; groupMap.set(t, g); }
+      g.count++;
+      g.items.push({ name: r.name, location: r.location || null, id: r.id });
     }
   } catch (e) {
     return { total: 0, byType: [], error: e.message };
   }
-  const byType = Array.from(byTypeMap.entries())
-    .map(([type, count]) => ({ type, count }))
+  const byType = Array.from(groupMap.entries())
+    .map(([type, { count, items }]) => ({
+      type,
+      count,
+      items: items.sort((a, b) => (a.name || '').localeCompare(b.name || '')),
+    }))
     .sort((a, b) => b.count - a.count || a.type.localeCompare(b.type));
   const total = byType.reduce((n, x) => n + x.count, 0);
   return { total, byType };

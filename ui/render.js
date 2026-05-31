@@ -96,11 +96,27 @@ export function renderPage({ phase1, discovery, missing, topError, fleet, cost, 
     </form>
   </dialog>
 
-  <dialog id="pricing-modal" style="max-width: 640px">
+  <dialog id="pricing-modal" style="max-width: 720px">
     <form onsubmit="submitPricing(event); return false;">
       <h2 style="margin-top:0">Anthropic pricing</h2>
-      <p class="muted" style="margin:.25rem 0 .5rem 0">Override the bundled <code>pricing.json</code>. Paste a JSON object with <code>models.<name>.{input, output, cacheRead, cacheWrite5m}</code> in $/MTok. Saves to the <code>PRICING_JSON</code> App Setting. Used immediately for cost calculations.</p>
-      <textarea id="pricing-json" required spellcheck="false" style="min-height:240px; width:100%; font: .8rem ui-monospace, monospace"></textarea>
+      <p class="muted" style="margin:.25rem 0 .5rem 0">Edit per-model rates in <strong>$ per million tokens</strong>. Saves to the <code>PRICING_JSON</code> App Setting. Used immediately for cost calculations.</p>
+      <div style="overflow-x:auto">
+        <table style="width:100%">
+          <thead><tr>
+            <th style="text-align:left">Model</th>
+            <th style="text-align:right">Input</th>
+            <th style="text-align:right">Output</th>
+            <th style="text-align:right">Cache read</th>
+            <th style="text-align:right">Cache write (5m)</th>
+            <th></th>
+          </tr></thead>
+          <tbody id="pricing-rows"></tbody>
+        </table>
+      </div>
+      <div class="row" style="margin-top:.5rem">
+        <button type="button" onclick="addPricingRow()">+ Add model</button>
+        <span class="muted" style="font-size:.82rem; margin-left:.5rem">Model name matches the <code>model:</code> label on issues (e.g. <code>haiku</code>, <code>sonnet</code>, <code>opus</code>).</span>
+      </div>
       <div class="row" style="justify-content:space-between; gap:.5rem; margin-top:.75rem">
         <button type="button" class="danger" onclick="clearPricing()">Clear override (revert to bundled)</button>
         <div class="row" style="gap:.5rem">

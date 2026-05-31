@@ -299,32 +299,87 @@ async function submitVmConfig(event) {
   }
 }
 
+// Pricing -- extras outside the models map (e.g. _lastVerified) are
+// preserved across edits so they round-trip cleanly. _source is a
+// runtime marker from the loader, never written back.
+let _pricingExtras = {};
+
+function pricingFieldsTpl(name, rates) {
+  const r = rates || {};
+  const safe = (v) => v == null ? '' : String(v);
+  const safeName = (name || '').replace(/"/g, '&quot;');
+  return '<tr data-model-row>'
+    + '<td><input type="text" name="model" value="' + safeName + '" required placeholder="e.g. sonnet" style="width:100%"></td>'
+    + '<td><input type="number" name="input"        value="' + safe(r.input) + '"        step="any" min="0" required style="width:100%; text-align:right"></td>'
+    + '<td><input type="number" name="output"       value="' + safe(r.output) + '"       step="any" min="0" required style="width:100%; text-align:right"></td>'
+    + '<td><input type="number" name="cacheRead"    value="' + safe(r.cacheRead) + '"    step="any" min="0" required style="width:100%; text-align:right"></td>'
+    + '<td><input type="number" name="cacheWrite5m" value="' + safe(r.cacheWrite5m) + '" step="any" min="0" required style="width:100%; text-align:right"></td>'
+    + '<td><button type="button" class="danger" onclick="this.closest(\\'tr\\').remove()" title="Remove model" style="padding:.2rem .5rem">✕</button></td>'
+    + '</tr>';
+}
+
+function addPricingRow() {
+  const tbody = document.getElementById('pricing-rows');
+  tbody.insertAdjacentHTML('beforeend', pricingFieldsTpl('', {}));
+  const inputs = tbody.querySelectorAll('tr:last-child input');
+  if (inputs.length) inputs[0].focus();
+}
+
 async function showPricingModal() {
-  const ta = document.getElementById('pricing-json');
-  ta.value = 'loading…';
+  const tbody = document.getElementById('pricing-rows');
+  tbody.innerHTML = '<tr><td colspan="6" class="muted">loading…</td></tr>';
   document.getElementById('pricing-modal').showModal();
   try {
     const r = await fetch('/admin/pricing');
     if (!r.ok) throw new Error('HTTP ' + r.status);
     const v = await r.json();
-    const editable = { ...v };
-    delete editable._source;
-    ta.value = JSON.stringify(editable, null, 2);
+    const models = (v && v.models) || {};
+    _pricingExtras = {};
+    for (const [k, val] of Object.entries(v || {})) {
+      if (k !== 'models' && k !== '_source') _pricingExtras[k] = val;
+    }
+    const names = Object.keys(models);
+    if (names.length === 0) names.push('haiku', 'sonnet', 'opus');
+    tbody.innerHTML = names.map(n => pricingFieldsTpl(n, models[n])).join('');
   } catch (e) {
-    ta.value = '{ "models": {} }';
+    tbody.innerHTML = pricingFieldsTpl('', {});
     showToast('Could not load current pricing: ' + e.message, { type: 'error', duration: 6000 });
   }
 }
 
 async function submitPricing(event) {
   event.preventDefault();
-  const ta = document.getElementById('pricing-json');
-  const raw = ta.value;
-  try { JSON.parse(raw); } catch (e) { showToast('Invalid JSON: ' + e.message, { type: 'error', duration: 6000 }); return; }
+  const tbody = document.getElementById('pricing-rows');
+  const rows = tbody.querySelectorAll('tr[data-model-row]');
+  const models = {};
+  const seen = new Set();
+  for (const row of rows) {
+    const name = row.querySelector('input[name="model"]').value.trim();
+    if (!name) { showToast('Every row needs a model name', { type: 'error', duration: 4000 }); return; }
+    if (seen.has(name)) { showToast('Duplicate model name: ' + name, { type: 'error', duration: 4000 }); return; }
+    seen.add(name);
+    const num = (k) => {
+      const raw = row.querySelector('input[name="' + k + '"]').value;
+      const v = Number(raw);
+      if (raw === '' || !Number.isFinite(v) || v < 0) throw new Error(name + '.' + k);
+      return v;
+    };
+    try {
+      models[name] = { input: num('input'), output: num('output'), cacheRead: num('cacheRead'), cacheWrite5m: num('cacheWrite5m') };
+    } catch (e) {
+      showToast('Invalid number for ' + e.message, { type: 'error', duration: 5000 });
+      return;
+    }
+  }
+  if (Object.keys(models).length === 0) {
+    showToast('Add at least one model row', { type: 'error', duration: 4000 });
+    return;
+  }
+  const payload = { ..._pricingExtras, models };
   document.getElementById('pricing-modal').close();
   const t = showToast('Saving pricing override…', { type: 'loading' });
   try {
-    const r = await postAdmin('/admin/pricing-override', { json: raw });
+    const r = await postAdmin('/admin/pricing-override', { json: JSON.stringify(payload) });
     t.update('Pricing override saved (' + (r.models || 0) + ' models)', 'success', 5000);
     setTimeout(() => location.reload(), 1500);
   } catch (e) {
