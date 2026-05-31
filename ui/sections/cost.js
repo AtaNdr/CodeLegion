@@ -1,6 +1,6 @@
 // Cost summary + recent tasks table.
 
-import { escapeHtml } from '../common.js';
+import { escapeHtml, issueLink, currentRepo } from '../common.js';
 import { pricingFreshness } from '../../anthropic/pricing.js';
 
 const formatDollars = (n) => n < 0.01 ? '$' + n.toFixed(4) : n < 1 ? '$' + n.toFixed(3) : '$' + n.toFixed(2);
@@ -13,12 +13,13 @@ export function renderCost({ totals, recent }) {
     ? ''
     : `<span class="pill pill-yellow">Pricing may be stale — ${freshness.ageDays || '?'} days old</span>`;
 
+  const repo = currentRepo();
   const rows = (recent || []).map(r => `
     <tr>
       <td>${escapeHtml(new Date(r.timestamp).toLocaleString())}</td>
       <td>${escapeHtml(r.agent || '?')}</td>
       <td>${escapeHtml(r.model || '?')}</td>
-      <td>${r.kind === 'explorer' ? '<em>explorer</em>' : (r.issue ? '#' + escapeHtml(String(r.issue)) : '?')}</td>
+      <td>${r.kind === 'explorer' ? '<em>explorer</em>' : (r.issue ? issueLink(r.issue, repo) : '?')}</td>
       <td>${escapeHtml(formatTokens((r.input || 0) + (r.output || 0) + (r.cacheCreate || 0) + (r.cacheRead || 0)))}</td>
       <td>${escapeHtml(formatDuration(r.durationSeconds || 0))}</td>
       <td>${escapeHtml(formatDollars(r.cost || 0))}</td>

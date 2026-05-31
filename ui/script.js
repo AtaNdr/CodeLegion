@@ -502,6 +502,20 @@ async function doCleanupOrphans() {
   }
 }
 
+function clEscape(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, function(c) {
+    return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c];
+  });
+}
+function clIssueLink(n) {
+  if (n == null || n === '') return '';
+  const meta = document.querySelector('meta[name="codelegion-repo"]');
+  const repo = meta ? meta.getAttribute('content') : null;
+  if (!repo) return '#' + clEscape(n);
+  return '<a href="https://github.com/' + clEscape(repo) + '/issues/' + encodeURIComponent(n)
+       + '" target="_blank" rel="noopener" class="issue-link">#' + clEscape(n) + '</a>';
+}
+
 async function showReconcileHistory() {
   try {
     const r = await fetch('/admin/reconcile/history');
@@ -509,23 +523,33 @@ async function showReconcileHistory() {
     const runs = data.runs || [];
     const dlg = document.getElementById('timeline-modal');
     document.getElementById('timeline-title').textContent = 'Reconcile history (' + runs.length + ' runs · newest first)';
+    const body = document.getElementById('timeline-body');
     if (runs.length === 0) {
-      document.getElementById('timeline-body').textContent = '(no runs yet)';
+      body.textContent = '(no runs yet)';
     } else {
       const formatted = runs.map(function(r) {
         const when = r.at ? new Date(r.at).toLocaleTimeString() : '?';
-        if (r.error) return when + ' · ERROR: ' + r.error;
-        const u = (r.unclaimed || []).map(function(i) { return '#' + i.issue + (i.onboarding ? '(ob)' : '') + ':' + i.model; }).join(',') || 'none';
-        const a = (r.assigned || []).map(function(x) { return '#' + x.issue + '→' + x.vm; }).join(',') || 'none';
+        if (r.error) return clEscape(when) + ' · ERROR: ' + clEscape(r.error);
+        const u = (r.unclaimed || []).map(function(i) {
+          return clIssueLink(i.issue) + (i.onboarding ? '(ob)' : '') + ':' + clEscape(i.model);
+        }).join(',') || 'none';
+        const a = (r.assigned || []).map(function(x) {
+          const target = x.agentName
+            ? (x.agentEmoji ? clEscape(x.agentEmoji) + ' ' : '') + clEscape(x.agentName)
+            : clEscape(x.vm);
+          return clIssueLink(x.issue) + '→' + target;
+        }).join(',') || 'none';
         const ca = (r.capacityActions || []).map(function(x) {
-          return x.model + ':' + x.action + (x.vmName ? ' ' + x.vmName : '') + (x.error ? ' (' + x.error.slice(0, 60) + ')' : '');
+          return clEscape(x.model) + ':' + clEscape(x.action)
+               + (x.vmName ? ' ' + clEscape(x.vmName) : '')
+               + (x.error ? ' (' + clEscape(x.error.slice(0, 60)) + ')' : '');
         }).join(' · ') || 'none';
-        return when + ' · alive ' + (r.aliveCount || 0) + ' free ' + (r.freeCount || 0)
+        return clEscape(when) + ' · alive ' + (r.aliveCount || 0) + ' free ' + (r.freeCount || 0)
           + ' · unclaimed: ' + u
           + ' · assigned: ' + a
           + ' · capacity: ' + ca;
       }).join('\\n');
-      document.getElementById('timeline-body').textContent = formatted;
+      body.innerHTML = formatted;
     }
     dlg.showModal();
   } catch (e) {
@@ -562,11 +586,18 @@ async function fleetAction(action) {
 async function showTimeline(vmName) {
   const r = await fetch('/admin/vm/' + encodeURIComponent(vmName) + '/timeline');
   const data = await r.json();
-  const lines = (data.events || []).map(e => \`\${e.ts || '?'} · \${e.state || '?'} · \${e.issue ? '#' + e.issue : ''} \${e.summary || ''}\`).join('\\n');
+  const lines = (data.events || []).map(function(e) {
+    const ts = clEscape(e.ts || '?');
+    const state = clEscape(e.state || '?');
+    const issue = e.issue ? clIssueLink(e.issue) : '';
+    const summary = clEscape(e.summary || '');
+    return ts + ' · ' + state + ' · ' + issue + ' ' + summary;
+  }).join('\\n');
   const dlg = document.getElementById('timeline-modal');
   if (!dlg) { alert(lines || 'no events'); return; }
   document.getElementById('timeline-title').textContent = 'Timeline · ' + vmName;
-  document.getElementById('timeline-body').textContent = lines || '(no events)';
+  const body = document.getElementById('timeline-body');
+  if (lines) { body.innerHTML = lines; } else { body.textContent = '(no events)'; }
   dlg.showModal();
 }
 async function showLog(vmName) {

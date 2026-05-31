@@ -27,6 +27,13 @@ export function renderPage({ phase1, discovery, missing, topError, fleet, cost, 
   const tokenMeta = adminToken
     ? `<meta name="codelegion-admin-token" content="${escapeHtml(adminToken)}">`
     : '';
+  // Expose the target repo so client-side renderers (Reconcile history
+  // modal, per-VM timeline, etc.) can build links to GitHub issues without
+  // needing a round-trip to the controller.
+  const o = process.env.GH_REPO_OWNER, r = process.env.GH_REPO_NAME;
+  const repoMeta = o && r
+    ? `<meta name="codelegion-repo" content="${escapeHtml(o + '/' + r)}">`
+    : '';
 
   return `<!doctype html>
 <html lang="en"><head>
@@ -34,6 +41,7 @@ export function renderPage({ phase1, discovery, missing, topError, fleet, cost, 
   <title>CodeLegion</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   ${tokenMeta}
+  ${repoMeta}
   <!-- Auto-refresh handled in JS so we can skip while a modal is open. -->
 
   <style>${STYLES}</style>

@@ -24,6 +24,23 @@ export function statusDot(status) {
   return `<span class="dot dot-${status || 'unknown'}" aria-label="${escapeHtml(status || 'unknown')}"></span>`;
 }
 
+// Render `#N` as a link to the GitHub issue, opening in a new tab. Falls
+// back to plain `#N` text when the repo isn't configured yet (Flow 1 not
+// done) so we never produce a broken href. The CSS class .issue-link in
+// STYLES below keeps the look quiet until hover.
+const REPO_NAME_RE = /^[a-zA-Z0-9._-]+\/[a-zA-Z0-9._-]+$/;
+export function issueLink(n, repo, { label } = {}) {
+  const text = label || ('#' + n);
+  if (!n || !repo || !REPO_NAME_RE.test(repo)) return escapeHtml(text);
+  return `<a href="https://github.com/${repo}/issues/${encodeURIComponent(n)}" target="_blank" rel="noopener" class="issue-link">${escapeHtml(text)}</a>`;
+}
+
+export function currentRepo() {
+  const o = process.env.GH_REPO_OWNER;
+  const r = process.env.GH_REPO_NAME;
+  return o && r ? `${o}/${r}` : null;
+}
+
 export const STYLES = `
   :root { color-scheme: light dark;
     --fg:#222; --bg:#fff; --muted:#888; --border:#e0e0e0; --pill-bg:#f0f0f0;
@@ -91,6 +108,10 @@ export const STYLES = `
   .toast-info    { border-left-color: var(--info); }
   .spinner { width: 15px; height: 15px; border: 2px solid var(--border); border-top-color: var(--info); border-radius: 50%; animation: spin .7s linear infinite; flex-shrink: 0; }
   @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Issue links — quiet by default, underline on hover. */
+  .issue-link { color: var(--info); text-decoration: none; }
+  .issue-link:hover { text-decoration: underline; }
 
   /* Update-available pill briefly pulses on first render, then settles. */
   .update-pulse { animation: update-pulse 1s ease-in-out 0s 4; }

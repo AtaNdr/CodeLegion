@@ -1,6 +1,6 @@
 // Per-VM cards + fleet controls.
 
-import { escapeHtml, pill, statusDot } from '../common.js';
+import { escapeHtml, pill, statusDot, issueLink, currentRepo } from '../common.js';
 
 export function renderFleet({ fleet, total, aliveCount, sleepingCount, byModel, agents, reconcile }) {
   const cards = (agents || []).map(renderAgentCard).join('') || '<p class="empty">No agents yet. Open a labeled issue in your repo to trigger one.</p>';
@@ -42,16 +42,17 @@ ${renderReconcile(reconcile)}
 function renderReconcile(reconcile) {
   const lr = reconcile?.lastRun;
   const assigns = reconcile?.assignments || [];
+  const repo = currentRepo();
   if (!lr) {
     return `<div class="card"><div class="spread"><span class="muted">Orchestrator: no reconcile run yet.</span><button onclick="doReconcile()">Reconcile now</button></div></div>`;
   }
   const when = lr.at ? new Date(lr.at).toLocaleTimeString() : '?';
-  const unclaimed = (lr.unclaimed || []).map(i => `#${i.issue}${i.onboarding ? ' (onboarding)' : ''}·${i.model}`).join(', ') || 'none';
+  const unclaimed = (lr.unclaimed || []).map(i => `${issueLink(i.issue, repo)}${i.onboarding ? ' (onboarding)' : ''}·${escapeHtml(i.model)}`).join(', ') || 'none';
   const liveAssigns = assigns.map(a => {
     const target = a.agentName
       ? `${a.agentEmoji ? escapeHtml(a.agentEmoji) + ' ' : ''}${escapeHtml(a.agentName)}`
       : escapeHtml(a.vm);
-    return `#${escapeHtml(String(a.issue))}→${target}`;
+    return `${issueLink(a.issue, repo)}→${target}`;
   }).join(', ') || 'none';
   const errLine = lr.error ? `<div class="err">reconcile error: ${escapeHtml(lr.error)}</div>` : '';
   const acts = lr.capacityActions || [];
@@ -81,8 +82,8 @@ function renderReconcile(reconcile) {
   </div>
   ${errLine}
   <div class="muted" style="margin-top:.35rem; font-size:.88rem">
-    Unclaimed issues: ${escapeHtml(unclaimed)}<br>
-    Alive ${lr.aliveCount ?? '?'} · free ${lr.freeCount ?? '?'} · active assignments: ${escapeHtml(liveAssigns)}
+    Unclaimed issues: ${unclaimed}<br>
+    Alive ${lr.aliveCount ?? '?'} · free ${lr.freeCount ?? '?'} · active assignments: ${liveAssigns}
     ${lr.needCapacity && Object.keys(lr.needCapacity).length ? `<br>Waiting on capacity: ${escapeHtml(JSON.stringify(lr.needCapacity))}` : ''}
     ${actionsLine}
   </div>
@@ -91,16 +92,17 @@ function renderReconcile(reconcile) {
 }
 
 function renderAgentCard(a) {
+  const repo = currentRepo();
   const stateClass = a.powerState === 'running' ? 'green'
     : a.powerState === 'starting' ? 'running'
     : (a.powerState === 'deallocated' || a.powerState === 'stopped') ? 'unknown'
     : 'yellow';
   const activity = a.activity;
   const summary = activity?.summary || activity?.state || '<em class="muted">no live status</em>';
-  const issue = activity?.issue ? `#${escapeHtml(activity.issue)} · ` : '';
+  const issue = activity?.issue ? `${issueLink(activity.issue, repo)} · ` : '';
   const updated = activity?.updatedAt ? new Date(activity.updatedAt).toLocaleTimeString() : '';
   const assignLine = a.assignment
-    ? `<div class="muted" style="font-size:.82rem">assigned #${escapeHtml(String(a.assignment.issue))}${a.assignment.onboarding ? ' (onboarding)' : ''} — awaiting agent pickup</div>`
+    ? `<div class="muted" style="font-size:.82rem">assigned ${issueLink(a.assignment.issue, repo)}${a.assignment.onboarding ? ' (onboarding)' : ''} — awaiting agent pickup</div>`
     : '';
   // Polling telemetry — does the agent actually ask the controller for tasks?
   let pollLine = '';
@@ -133,7 +135,7 @@ function renderAgentCard(a) {
     </div>
   </div>
   <div style="margin:.25rem 0; min-height:1.5rem">
-    ${activity ? `<span class="muted">${escapeHtml(issue)}</span>${escapeHtml(summary)}` : '<span class="empty">awaiting status</span>'}
+    ${activity ? `<span class="muted">${issue}</span>${escapeHtml(summary)}` : '<span class="empty">awaiting status</span>'}
     ${updated ? `<span class="muted" style="font-size:.8rem"> · ${escapeHtml(updated)}</span>` : ''}
     ${assignLine}
     ${pollLine}
