@@ -3,8 +3,24 @@
 import { escapeHtml } from '../common.js';
 import { config } from '../../config.js';
 
+// Friendly short labels for the resource-count card. Anything not in this
+// map is shown by its raw Microsoft.* type — easier to spot oddities.
+const RESOURCE_LABELS = {
+  'Microsoft.Compute/virtualMachines': 'VMs',
+  'Microsoft.Compute/disks': 'Disks',
+  'Microsoft.Network/networkInterfaces': 'NICs',
+  'Microsoft.Network/virtualNetworks': 'VNets',
+  'Microsoft.Network/networkSecurityGroups': 'NSGs',
+  'Microsoft.Network/publicIPAddresses': 'Public IPs',
+  'Microsoft.Network/natGateways': 'NAT gateways',
+  'Microsoft.Web/sites': 'Web Apps',
+  'Microsoft.Web/serverfarms': 'App Service Plans',
+  'Microsoft.KeyVault/vaults': 'Key Vaults',
+  'Microsoft.Storage/storageAccounts': 'Storage accounts',
+};
+
 export function renderDiscovery({ discovery, missing, topError, setupInline = '' }) {
-  const { rg, network: net, netError } = discovery;
+  const { rg, network: net, netError, resourceCounts } = discovery;
   const subDisplay = config.subscriptionId
     ? `<code>${escapeHtml(config.subscriptionId)}</code>`
     : '<span class="err">NOT SET</span>';
@@ -14,6 +30,23 @@ export function renderDiscovery({ discovery, missing, topError, setupInline = ''
   const vnets = net?.vnets || [];
   const nsgs = net?.nsgs || [];
   const nats = net?.natGateways || [];
+
+  // Resource count card — every resource in the RG, grouped by type.
+  const rc = resourceCounts || { total: 0, byType: [] };
+  const rcRows = (rc.byType || []).map(({ type, count }) => {
+    const label = RESOURCE_LABELS[type] || type;
+    const known = RESOURCE_LABELS[type] ? '' : ' <span class="muted" style="font-size:.78rem">(other)</span>';
+    return `<tr><td>${escapeHtml(label)}${known}</td><td style="text-align:right; font-variant-numeric: tabular-nums">${count}</td></tr>`;
+  }).join('');
+  const resourceCountCard = `
+    <div class="card" style="margin-top:.5rem">
+      <h3>Resources in RG (${rc.total || 0})</h3>
+      ${rc.error
+        ? `<p class="err">${escapeHtml(rc.error)}</p>`
+        : rc.total === 0
+          ? '<p class="empty">None found.</p>'
+          : `<table>${rcRows}</table>`}
+    </div>`;
 
   return `
 <details>
@@ -62,6 +95,8 @@ export function renderDiscovery({ discovery, missing, topError, setupInline = ''
         : '<ul>' + nats.map(n => `<li><code>${escapeHtml(n.name)}</code></li>`).join('') + '</ul>'}
     </div>
   </div>
+
+  ${resourceCountCard}
 
   <div class="card spread" style="margin-top:.75rem">
     <span class="muted" style="font-size:.88rem">Infrastructure maintenance — sweeps failed VMs, orphan NICs (which hold subnet IPs), and orphan disks (which accrue cost). Run if VM spin-up fails with "subnet does not have enough capacity" or to reclaim leaked disks.</span>

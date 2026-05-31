@@ -62,14 +62,42 @@ export async function discoverNetwork() {
   };
 }
 
+// Count every resource in the RG, grouped by type. Cheap (one Resources
+// API call). Each entry is { type, count }, sorted by count descending.
+// `total` is the sum so the UI can show e.g. "12 resources" at a glance.
+export async function discoverResourceCounts() {
+  const rg = config.resourceGroup;
+  if (!rg) return { total: 0, byType: [] };
+  const byTypeMap = new Map();
+  try {
+    for await (const r of resources().resources.listByResourceGroup(rg)) {
+      const t = r.type || 'unknown';
+      byTypeMap.set(t, (byTypeMap.get(t) || 0) + 1);
+    }
+  } catch (e) {
+    return { total: 0, byType: [], error: e.message };
+  }
+  const byType = Array.from(byTypeMap.entries())
+    .map(([type, count]) => ({ type, count }))
+    .sort((a, b) => b.count - a.count || a.type.localeCompare(b.type));
+  const total = byType.reduce((n, x) => n + x.count, 0);
+  return { total, byType };
+}
+
 export async function discoverAll() {
   const rg = await discoverResourceGroup();
   let net = { vnets: [], nsgs: [], natGateways: [] };
   let netError = null;
+  let resourceCounts = { total: 0, byType: [] };
   try {
     net = await discoverNetwork();
   } catch (e) {
     netError = e.message;
   }
-  return { rg, network: net, netError };
+  try {
+    resourceCounts = await discoverResourceCounts();
+  } catch (e) {
+    resourceCounts = { total: 0, byType: [], error: e.message };
+  }
+  return { rg, network: net, netError, resourceCounts };
 }

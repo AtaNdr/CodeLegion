@@ -3,8 +3,14 @@
 import { escapeHtml, statusDot, pill } from '../common.js';
 import { checks } from '../../flow1/checks.js';
 
-export function renderSetup({ results, summary }) {
-  const collapsed = summary.allDone ? '' : 'open';
+export function renderSetup({ results, summary }, { inline = false } = {}) {
+  // When this section is rendered inline inside Environment & discovery
+  // (post-allDone), don't persist its open/closed state and default to
+  // closed — so clicking Environment doesn't auto-expand setup. When at
+  // top of page (allDone=false), persist + default-open as before.
+  const collapsed = inline ? '' : (summary.allDone ? '' : 'open');
+  const persistAttr = inline ? '' : 'data-persist';
+  const idAttr = inline ? 'id="flow1-details-inline"' : 'id="flow1-details"';
   const skippedNote = summary.skipped ? ` · ${summary.skipped} skipped` : '';
   const headline = summary.allGreen
     ? `Setup complete — ${summary.green}/${summary.total} green`
@@ -43,7 +49,7 @@ export function renderSetup({ results, summary }) {
   }).join('');
 
   return `
-<details id="flow1-details" data-persist ${collapsed}>
+<details ${idAttr} ${persistAttr} ${collapsed}>
   <summary><h2 style="display:inline-block; margin:0">Infrastructure setup</h2>
     <span class="pill pill-${summary.allDone ? 'green' : (summary.red > 0 ? 'red' : 'yellow')}">${escapeHtml(headline)}</span>
   </summary>

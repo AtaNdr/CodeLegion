@@ -11,9 +11,11 @@ export function renderPage({ phase1, discovery, missing, topError, fleet, cost, 
   // discovery so the dashboard's primary content is the fleet, not a
   // permanent green checklist that no longer needs attention. If anything
   // regresses (a check goes yellow/red), it pops back to the top.
-  const setupRendered = phase1 ? renderSetup(phase1) : '';
-  const setupAtTop = phase1 && !phase1.summary?.allDone ? setupRendered : '';
-  const setupInDiscovery = phase1 && phase1.summary?.allDone ? setupRendered : '';
+  // When inline (folded into Environment), the setup <details> defaults
+  // closed and doesn't persist, so clicking Environment doesn't auto-expand
+  // setup. When at top (allDone=false), persist + default-open as before.
+  const setupAtTop = phase1 && !phase1.summary?.allDone ? renderSetup(phase1) : '';
+  const setupInDiscovery = phase1 && phase1.summary?.allDone ? renderSetup(phase1, { inline: true }) : '';
   const discoverySection = discovery ? renderDiscovery({ discovery, missing, topError, setupInline: setupInDiscovery }) : '';
   const fleetSection = fleet || '';
   const costSection = cost || '';
