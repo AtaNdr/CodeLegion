@@ -1,0 +1,775 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CodeLegion — Stakeholder Briefing</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --gold: #C9A84C;
+  --bg: #0A0A0A;
+  --card: #161616;
+  --card2: #1E1E1E;
+  --border: #2E2E2E;
+  --border2: #3A3A3A;
+  --silver: #888;
+  --muted: #555;
+  --off: #D8D8D8;
+  --white: #FFFFFF;
+  --red: #E03E3E;
+  --nav-h: 52px;
+}
+
+html, body {
+  height: 100%; width: 100%;
+  background: var(--bg);
+  color: var(--off);
+  font-family: 'Segoe UI', Helvetica, Arial, sans-serif;
+  overflow: hidden;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+/* ── DECK ── */
+#deck { position: relative; width: 100%; height: calc(100vh - var(--nav-h)); overflow: hidden; }
+
+.slide {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  opacity: 0; transform: translateX(60px);
+  transition: transform 0.4s cubic-bezier(0.4,0,0.2,1), opacity 0.4s ease;
+  pointer-events: none;
+  background: var(--bg);
+}
+.slide.active  { opacity: 1; transform: translateX(0); pointer-events: all; }
+.slide.out-left{ opacity: 0; transform: translateX(-60px); }
+
+/* ── SECTION LABEL ── */
+.slab {
+  height: 40px; flex-shrink: 0;
+  background: var(--card);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center;
+  padding: 0 44px;
+  font-size: 10px; letter-spacing: 3.5px; font-weight: 700;
+  color: var(--gold); text-transform: uppercase;
+}
+
+/* ── BODY ── */
+.body {
+  flex: 1; min-height: 0;
+  padding: 28px 44px 24px;
+  display: flex; flex-direction: column;
+  gap: 0; overflow: hidden;
+}
+
+/* ── HEADINGS ── */
+.slide-title {
+  font-size: 28px; font-weight: 700;
+  color: var(--white); line-height: 1.2;
+  margin-bottom: 20px; flex-shrink: 0;
+}
+.slide-title.lg { font-size: 52px; line-height: 1.1; margin-bottom: 10px; }
+
+/* ── LABEL ── */
+.label {
+  font-size: 11px; font-weight: 700;
+  letter-spacing: 2px; text-transform: uppercase;
+  color: var(--gold); margin-bottom: 10px;
+}
+
+/* ── GOLD RULE ── */
+.rule { width: 180px; height: 2px; background: var(--gold); margin-bottom: 16px; }
+
+/* ── PILLS (title slide) ── */
+.pill-row { display: flex; gap: 14px; margin-top: auto; }
+.pill {
+  flex: 1;
+  background: var(--card);
+  border: 1px solid var(--border2);
+  border-top: 2px solid var(--gold);
+  padding: 16px 12px 14px;
+  text-align: center;
+}
+.pill-val { display: block; font-size: 22px; font-weight: 700; color: var(--white); }
+.pill-lbl { display: block; font-size: 12px; color: var(--silver); margin-top: 5px; letter-spacing: 0.3px; }
+
+/* ── TWO COL ── */
+.cols { display: grid; gap: 20px; flex: 1; min-height: 0; }
+.cols-2 { grid-template-columns: 1fr 1fr; }
+.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
+.cols-4 { grid-template-columns: 1fr 1fr 1fr 1fr; }
+.col { display: flex; flex-direction: column; gap: 12px; min-height: 0; }
+
+/* ── CARDS ── */
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  padding: 18px 20px;
+}
+.card.gold-top  { border-top: 2px solid var(--gold); }
+.card.white-top { border-top: 2px solid var(--white); }
+.card.gold-left { border-left: 3px solid var(--gold); }
+.card.white-left{ border-left: 3px solid var(--white); }
+.card.red-left  { border-left: 3px solid var(--red); }
+.card.fill { flex: 1; }
+
+/* ── BIG STAT ── */
+.big-stat { text-align: center; display: flex; flex-direction: column; justify-content: center; }
+.big-num { font-size: 58px; font-weight: 700; color: var(--gold); line-height: 1; }
+.big-num.white { color: var(--white); }
+.big-desc { font-size: 14px; color: var(--off); margin-top: 10px; line-height: 1.5; }
+.big-src  { font-size: 11px; color: var(--silver); margin-top: 8px; font-style: italic; }
+
+/* ── BULLETS ── */
+.blist { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.blist li {
+  padding: 10px 14px;
+  background: var(--card);
+  border-left: 2px solid var(--gold);
+  font-size: 14px; color: var(--off); line-height: 1.45;
+}
+
+/* ── NOTE BAR ── */
+.note {
+  background: var(--card2);
+  border-left: 3px solid var(--gold);
+  padding: 12px 16px;
+  font-size: 13px; color: var(--off); font-style: italic;
+  margin-top: auto;
+}
+
+/* ── SECTION LABEL INSIDE SLIDE ── */
+.sec-label {
+  font-size: 11px; font-weight: 700; color: var(--gold);
+  letter-spacing: 1.5px; text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+/* ── BAR CHART ── */
+.bar-chart { display: flex; gap: 20px; align-items: flex-end; height: 120px; }
+.bar-col   { display: flex; flex-direction: column; align-items: center; gap: 6px; flex: 1; }
+.bar-val   { font-size: 13px; font-weight: 700; color: var(--white); }
+.bar-rect  { width: 100%; background: var(--border2); border-radius: 2px 2px 0 0; }
+.bar-rect.g{ background: var(--gold); }
+.bar-lbl   { font-size: 11px; color: var(--silver); text-align: center; line-height: 1.35; }
+.chart-note{ font-size: 11px; color: var(--muted); font-style: italic; margin-top: 6px; }
+
+/* ── CRITERIA ── */
+.crit-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: auto auto auto;
+  gap: 10px; flex: 1;
+}
+.crit-card {
+  background: var(--card); border: 1px solid var(--border);
+  border-left: 3px solid var(--gold);
+  padding: 14px 18px; display: flex; flex-direction: column; gap: 5px;
+}
+.crit-card.wa { border-left-color: var(--white); }
+.crit-card.span2 { grid-column: 1 / -1; flex-direction: row; align-items: center; gap: 20px; }
+.crit-title { font-size: 15px; font-weight: 700; color: var(--white); }
+.crit-body  { font-size: 13px; color: var(--silver); line-height: 1.45; }
+
+/* ── COMPARE TABLE ── */
+.ctable { width: 100%; border-collapse: collapse; }
+.ctable th {
+  background: var(--card2); color: var(--silver);
+  font-size: 11px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase;
+  padding: 10px 16px; text-align: left;
+  border-bottom: 1px solid var(--border2);
+}
+.ctable td {
+  padding: 12px 16px; border-bottom: 1px solid var(--border);
+  font-size: 14px; color: var(--off); vertical-align: middle;
+}
+.ctable td:first-child { color: var(--white); font-weight: 600; width: 36%; }
+.ctable tr:last-child td {
+  background: var(--gold); color: #1a1000; font-weight: 700;
+  border-bottom: none;
+}
+.ctable tbody tr:not(:last-child):hover td { background: var(--card2); }
+
+/* ── FLOW ── */
+.flow { display: flex; align-items: stretch; flex-shrink: 0; margin-bottom: 18px; }
+.fbox {
+  flex: 1; background: var(--card); border: 1px solid var(--border);
+  padding: 16px 12px; text-align: center;
+  display: flex; flex-direction: column; justify-content: center; gap: 6px;
+}
+.fbox.hl { background: var(--gold); border-color: var(--gold); }
+.fbox.hl .ft { color: #111; }
+.fbox.hl .fs { color: #443010; }
+.ft { font-size: 14px; font-weight: 700; color: var(--white); }
+.fs { font-size: 12px; color: var(--silver); line-height: 1.4; }
+.farr {
+  width: 32px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; color: var(--gold); font-weight: 700;
+}
+
+/* ── FEAT CARDS ── */
+.feat-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; }
+.feat-card {
+  background: var(--card); border: 1px solid var(--border);
+  border-top: 2px solid var(--gold); padding: 14px 14px;
+}
+.feat-card.wt { border-top-color: var(--white); }
+.ft2 { font-size: 13px; font-weight: 700; color: var(--white); margin-bottom: 6px; }
+.fs2 { font-size: 12px; color: var(--silver); line-height: 1.45; }
+
+/* ── CAP COLS ── */
+.cap-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 14px; flex: 1; min-height: 0; }
+.cap-col {
+  background: var(--card); border: 1px solid var(--border);
+  border-top: 2px solid var(--gold); padding: 18px 18px;
+  display: flex; flex-direction: column;
+}
+.cap-col.wt { border-top-color: var(--white); }
+.cap-title { font-size: 15px; font-weight: 700; color: var(--white); margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
+.cap-item { font-size: 13px; color: var(--silver); padding: 8px 0; border-bottom: 1px solid var(--border); line-height: 1.45; }
+.cap-item:last-child { border-bottom: none; }
+
+/* ── PERF STATS ── */
+.perf-row { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; flex-shrink: 0; margin-bottom: 18px; }
+.perf-card {
+  background: var(--card); border: 1px solid var(--border);
+  border-top: 2px solid var(--gold); padding: 16px 14px; text-align: center;
+}
+.perf-card.wt { border-top-color: var(--white); }
+.perf-val { font-size: 28px; font-weight: 700; color: var(--gold); line-height: 1.1; }
+.perf-card.wt .perf-val { color: var(--white); }
+.perf-lbl { font-size: 12px; color: var(--silver); margin-top: 6px; line-height: 1.4; }
+
+/* ── RISK ROWS ── */
+.risk-list { display: flex; flex-direction: column; gap: 8px; flex: 1; min-height: 0; }
+.risk-row { display: grid; grid-template-columns: 1fr 36px 1fr; min-height: 52px; }
+.risk-cell {
+  background: var(--card); border: 1px solid #2E1A1A;
+  border-left: 3px solid var(--red);
+  padding: 12px 14px; display: flex; align-items: center;
+}
+.mit-cell {
+  background: var(--card); border: 1px solid #1A2A1A;
+  border-left: 3px solid var(--gold);
+  padding: 12px 14px; font-size: 13px; color: var(--silver);
+  line-height: 1.45; display: flex; align-items: center;
+}
+.risk-lbl { font-size: 13px; font-weight: 700; color: var(--white); }
+.rarr { display: flex; align-items: center; justify-content: center; font-size: 16px; color: var(--gold); font-weight: 700; }
+
+/* ── ROAD ── */
+.road-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; flex: 1; min-height: 0; }
+.road-col { background: var(--card); border: 1px solid var(--border); padding: 22px 24px; display: flex; flex-direction: column; }
+.road-col-title { font-size: 15px; font-weight: 700; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
+.road-item { padding: 12px 0; border-bottom: 1px solid var(--border); }
+.road-item:last-child { border-bottom: none; }
+.road-item-title { font-size: 14px; font-weight: 700; margin-bottom: 4px; }
+.road-item-body { font-size: 13px; color: var(--silver); line-height: 1.45; }
+
+/* ── SUMMARY ── */
+.summary-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; flex: 1; min-height: 0; }
+.proof-list { list-style: none; display: flex; flex-direction: column; gap: 10px; margin-top: 4px; }
+.proof-list li {
+  font-size: 15px; color: var(--off);
+  padding-left: 20px; position: relative; line-height: 1.5;
+}
+.proof-list li::before { content: "—"; position: absolute; left: 0; color: var(--gold); }
+.ask-card { background: var(--card); border: 1px solid var(--border); border-top: 2px solid var(--gold); padding: 22px 22px; display: flex; flex-direction: column; }
+.ask-title { font-size: 14px; font-weight: 700; color: var(--white); letter-spacing: 0.5px; margin-bottom: 14px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
+.ask-item { display: flex; gap: 14px; padding: 12px 0; border-bottom: 1px solid var(--border); align-items: flex-start; }
+.ask-item:last-child { border-bottom: none; padding-bottom: 0; }
+.ask-num {
+  width: 26px; height: 26px; flex-shrink: 0;
+  background: var(--gold); color: #1a1000;
+  font-size: 13px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+}
+.ask-text { font-size: 14px; color: var(--silver); line-height: 1.5; }
+
+/* ── NAV ── */
+#nav {
+  position: fixed; bottom: 0; left: 0; right: 0;
+  height: var(--nav-h);
+  background: var(--card); border-top: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 36px; z-index: 100; gap: 16px;
+}
+.nav-btn {
+  background: none; border: 1px solid var(--border2);
+  color: var(--off); padding: 7px 22px;
+  cursor: pointer; font-size: 12px; font-family: inherit;
+  letter-spacing: 1.5px; text-transform: uppercase;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  white-space: nowrap;
+}
+.nav-btn:hover { background: var(--gold); color: #1a1000; border-color: var(--gold); }
+.nav-btn:disabled { opacity: 0.28; cursor: default; pointer-events: none; }
+#nav-center { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+#slide-label { font-size: 11px; color: var(--silver); letter-spacing: 1px; }
+.dots { display: flex; gap: 7px; align-items: center; }
+.dot { width: 5px; height: 5px; border-radius: 50%; background: var(--border2); cursor: pointer; transition: background 0.2s, transform 0.2s; }
+.dot.on { background: var(--gold); transform: scale(1.5); }
+
+/* ── PROGRESS ── */
+#bar { position: fixed; top: 0; left: 0; height: 2px; background: var(--gold); transition: width 0.35s ease; z-index: 200; }
+</style>
+</head>
+<body>
+
+<div id="bar"></div>
+<div id="deck">
+
+<!-- ─── SLIDE 1: TITLE ─── -->
+<div class="slide active" id="s0">
+  <div class="body" style="justify-content:center; padding-top:60px; position:relative;">
+    <div style="position:absolute;top:0;left:0;width:3px;height:100%;background:var(--gold);"></div>
+    <div class="label" style="margin-bottom:20px;">Stakeholder Briefing</div>
+    <div class="slide-title lg">CodeLegion</div>
+    <div style="font-size:18px;color:var(--gold);font-style:italic;margin-bottom:20px;">Autonomous agent fleet for GitHub issue resolution</div>
+    <div class="rule"></div>
+    <div style="font-size:13px;color:var(--silver);margin-bottom:0;">Strategic &amp; Technical Overview</div>
+    <div class="pill-row" style="margin-top:48px;">
+      <div class="pill"><span class="pill-val">~3 min</span><span class="pill-lbl">Time to first PR</span></div>
+      <div class="pill"><span class="pill-val">$0.03 – $0.30</span><span class="pill-lbl">Per task cost</span></div>
+      <div class="pill"><span class="pill-val">&lt; 15 min</span><span class="pill-lbl">To deploy on Azure</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ─── SLIDE 2: PROBLEM ─── -->
+<div class="slide" id="s1">
+  <div class="slab">The Problem</div>
+  <div class="body">
+    <div class="slide-title">Engineering backlogs grow faster than they shrink</div>
+    <div class="cols cols-2" style="flex:1;min-height:0;">
+      <div class="col">
+        <div class="sec-label">Work that accumulates unattended</div>
+        <ul class="blist">
+          <li>Bug fixes with clear reproductions</li>
+          <li>Dependency bumps &amp; security patches</li>
+          <li>Test additions for existing behaviour</li>
+          <li>Mechanical refactors</li>
+        </ul>
+        <div class="note">Senior engineers are the bottleneck — but this work doesn't require senior engineers.</div>
+      </div>
+      <div class="col">
+        <div class="card fill big-stat gold-top">
+          <div class="big-num">25–50%</div>
+          <div class="big-desc">of engineering time spent on maintenance &amp; bug-fixing<br>rather than new features</div>
+          <div class="big-src">McKinsey &amp; Company, 2023</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ─── SLIDE 3: WHY NOW ─── -->
+<div class="slide" id="s2">
+  <div class="slab">Why Now</div>
+  <div class="body">
+    <div class="slide-title">Frontier coding LLMs crossed a usefulness threshold in 2024–2025</div>
+    <div class="cols cols-2" style="flex:1;min-height:0;">
+      <div class="col">
+        <div class="sec-label">SWE-bench Verified — Real GitHub Issue Resolution</div>
+        <div class="bar-chart">
+          <div class="bar-col">
+            <span class="bar-val">3%</span>
+            <div class="bar-rect" style="height:8px;"></div>
+            <span class="bar-lbl">2023<br>Models</span>
+          </div>
+          <div class="bar-col">
+            <span class="bar-val">22%</span>
+            <div class="bar-rect" style="height:52px;"></div>
+            <span class="bar-lbl">2024<br>Models</span>
+          </div>
+          <div class="bar-col">
+            <span class="bar-val">55%</span>
+            <div class="bar-rect g" style="height:120px;"></div>
+            <span class="bar-lbl">2025<br>Frontier</span>
+          </div>
+        </div>
+        <div class="chart-note">Approximate pass rates (%)</div>
+      </div>
+      <div class="col">
+        <div class="card fill big-stat gold-top">
+          <div class="big-num">55%</div>
+          <div class="big-desc">faster task completion<br>with AI coding assistance</div>
+          <div class="big-src">GitHub Copilot Study, 2022</div>
+        </div>
+        <div class="card fill big-stat white-top">
+          <div class="big-num white">74%</div>
+          <div class="big-desc">more focused on<br>satisfying meaningful work</div>
+          <div class="big-src">GitHub Copilot Study, 2022</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ─── SLIDE 4: CRITERIA ─── -->
+<div class="slide" id="s3">
+  <div class="slab">Non-Negotiable Criteria</div>
+  <div class="body">
+    <div class="slide-title">Five requirements for a stakeholder-grade automation system</div>
+    <div class="crit-grid" style="flex:1;">
+      <div class="crit-card">
+        <div class="crit-title">Unattended</div>
+        <div class="crit-body">No human-in-loop for routine work. Agents act and submit PRs autonomously.</div>
+      </div>
+      <div class="crit-card wa">
+        <div class="crit-title">Cost-controlled</div>
+        <div class="crit-body">Pay only for work done. Hard caps per task. Stop-fleet in one click.</div>
+      </div>
+      <div class="crit-card wa">
+        <div class="crit-title">Auditable</div>
+        <div class="crit-body">Every action visible on GitHub — issue comments, PR diffs, cost summaries.</div>
+      </div>
+      <div class="crit-card">
+        <div class="crit-title">Native to workflow</div>
+        <div class="crit-body">GitHub Issues and PRs only. No new tools, no new portals, no context switching.</div>
+      </div>
+      <div class="crit-card span2">
+        <div>
+          <div class="crit-title">Secure by default</div>
+          <div class="crit-body">No broad credentials on workers. Branch protection enforced. Short-lived tokens only.</div>
+        </div>
+      </div>
+    </div>
+    <div style="font-size:12px;color:var(--muted);font-style:italic;text-align:center;margin-top:14px;flex-shrink:0;">
+      A solution missing any one of these is not deployable in a serious environment.
+    </div>
+  </div>
+</div>
+
+<!-- ─── SLIDE 5: WHY CODELEGION ─── -->
+<div class="slide" id="s4">
+  <div class="slab">Why CodeLegion</div>
+  <div class="body">
+    <div class="slide-title">The only option that is unattended, auditable, self-hosted, and economical</div>
+    <table class="ctable" style="flex:1;">
+      <thead>
+        <tr>
+          <th>Option</th>
+          <th>Trade-off / Limitation</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>Manual triage by engineers</td><td>Burns senior engineer time. Does not scale with backlog growth.</td></tr>
+        <tr><td>GitHub Actions + LLM</td><td>6-hour run limit; harder isolation; no persistent fleet state.</td></tr>
+        <tr><td>Devin / Copilot Workspace (SaaS)</td><td>Per-seat pricing. Third-party data sharing. Vendor lock-in.</td></tr>
+        <tr><td>DIY agent framework</td><td>4–8 person-weeks of plumbing per team to reach feature parity.</td></tr>
+        <tr><td>✓&nbsp; CodeLegion</td><td>One Azure Web App. Open source. Self-hosted. Per-token cost only.</td></tr>
+      </tbody>
+    </table>
+    <div style="font-size:12px;color:var(--muted);font-style:italic;text-align:center;margin-top:14px;flex-shrink:0;">
+      Open-source and self-hostable — no SaaS subscription, no vendor dependency.
+    </div>
+  </div>
+</div>
+
+<!-- ─── SLIDE 6: APPROACH ─── -->
+<div class="slide" id="s5">
+  <div class="slab">The Approach</div>
+  <div class="body">
+    <div class="slide-title">One Web App. One fleet. One repository.</div>
+    <div class="flow">
+      <div class="fbox"><div class="ft">GitHub Issue</div><div class="fs">Developer labels<br>issue agent-ready</div></div>
+      <div class="farr">›</div>
+      <div class="fbox hl"><div class="ft">Webhook → Controller</div><div class="fs">Azure Web App<br>reconcile loop 45s</div></div>
+      <div class="farr">›</div>
+      <div class="fbox"><div class="ft">Agent VM</div><div class="fs">Spin on demand<br>claim · plan · code · test</div></div>
+      <div class="farr">›</div>
+      <div class="fbox"><div class="ft">Pull Request</div><div class="fs">Human review<br>then merge</div></div>
+    </div>
+    <div class="feat-grid">
+      <div class="feat-card">
+        <div class="ft2">Wake-on-demand VMs</div>
+        <div class="fs2">Spun only when issues exist. Self-deallocate after 10 idle minutes.</div>
+      </div>
+      <div class="feat-card wt">
+        <div class="ft2">Label-driven dispatch</div>
+        <div class="fs2">agent-ready + model:sonnet|haiku|opus routes to the right tier.</div>
+      </div>
+      <div class="feat-card">
+        <div class="ft2">GitHub App auth</div>
+        <div class="fs2">Short-lived tokens only. Private key never leaves the controller.</div>
+      </div>
+      <div class="feat-card wt">
+        <div class="ft2">All state on disk</div>
+        <div class="fs2">No Key Vault, no database, no external shared store required.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ─── SLIDE 7: CAPABILITIES ─── -->
+<div class="slide" id="s6">
+  <div class="slab">Capabilities</div>
+  <div class="body">
+    <div class="slide-title">Engineering automation, operations, and reliability — out of the box</div>
+    <div class="cap-grid">
+      <div class="cap-col">
+        <div class="cap-title">Engineering Automation</div>
+        <div class="cap-item">Label-driven dispatch with per-issue model routing</div>
+        <div class="cap-item">Triage proposals for ambiguous issues</div>
+        <div class="cap-item">Automatic test generation per acceptance criterion</div>
+        <div class="cap-item">Per-task cost summary commented on the issue</div>
+      </div>
+      <div class="cap-col wt">
+        <div class="cap-title">Operations</div>
+        <div class="cap-item">One-click Stop / Start — full cost pause</div>
+        <div class="cap-item">Three-scope Uninstall with typed confirmation</div>
+        <div class="cap-item">Edit VM sizes &amp; pricing without redeploying</div>
+        <div class="cap-item">Surgical dashboard auto-refresh</div>
+      </div>
+      <div class="cap-col">
+        <div class="cap-title">Reliability</div>
+        <div class="cap-item">Race-resolved claim mechanism</div>
+        <div class="cap-item">Orphan resource cleanup (VMs, NICs, disks)</div>
+        <div class="cap-item">Self-updating agent VMs each poll cycle</div>
+        <div class="cap-item">App Service auto-restart; persistent disk survives</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ─── SLIDE 8: PERFORMANCE ─── -->
+<div class="slide" id="s7">
+  <div class="slab">Performance in Production</div>
+  <div class="body">
+    <div class="slide-title">Active on the maintainer's projects today</div>
+    <div class="perf-row">
+      <div class="perf-card">
+        <div class="perf-val">~3 min</div>
+        <div class="perf-lbl">Time to first PR from issue creation</div>
+      </div>
+      <div class="perf-card wt">
+        <div class="perf-val">$13 / mo</div>
+        <div class="perf-lbl">Operational floor (Web App + networking)</div>
+      </div>
+      <div class="perf-card">
+        <div class="perf-val">$0.03–$0.30</div>
+        <div class="perf-lbl">Typical per-task token cost</div>
+      </div>
+      <div class="perf-card wt">
+        <div class="perf-val">5–30 min</div>
+        <div class="perf-lbl">Agent runtime per scoped issue</div>
+      </div>
+    </div>
+    <div class="cols cols-2" style="flex:1;min-height:0;">
+      <div class="col">
+        <div class="sec-label">Code Quality Gates</div>
+        <ul class="blist">
+          <li>Branch protection + 1 review + CODEOWNERS</li>
+          <li>Tests required per acceptance criterion</li>
+          <li>Per-VM live state + 50-cycle reconcile history</li>
+          <li>Full audit trail on GitHub</li>
+        </ul>
+      </div>
+      <div class="col">
+        <div class="card fill white-top" style="padding:18px 20px;">
+          <div class="sec-label" style="color:var(--white);margin-bottom:12px;">Best fit for</div>
+          <ul class="blist">
+            <li>Teams of 1–20 engineers</li>
+            <li>Repos with a steady backlog of scoped issues</li>
+            <li>Codebases where acceptance criteria can be stated as a checklist</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ─── SLIDE 9: RISKS ─── -->
+<div class="slide" id="s8">
+  <div class="slab">Risks &amp; Mitigations</div>
+  <div class="body">
+    <div class="slide-title">Known risks — each with a concrete mitigation in place</div>
+    <div class="risk-list">
+      <div class="risk-row">
+        <div class="risk-cell"><span class="risk-lbl">LLM produces incorrect code</span></div>
+        <div class="rarr">›</div>
+        <div class="mit-cell">Every PR is human-reviewed. Tests required per criterion. Branch protection prevents direct main pushes.</div>
+      </div>
+      <div class="risk-row">
+        <div class="risk-cell"><span class="risk-lbl">Unbounded API spend</span></div>
+        <div class="rarr">›</div>
+        <div class="mit-cell">Per-task budget caps (time, tokens, turns). Hard model caps. Stop-fleet single click. Cost visible per task.</div>
+      </div>
+      <div class="risk-row">
+        <div class="risk-cell"><span class="risk-lbl">Dashboard exposed publicly</span></div>
+        <div class="rarr">›</div>
+        <div class="mit-cell">Azure App Service Easy Auth available today. Built-in password gate in active design.</div>
+      </div>
+      <div class="risk-row">
+        <div class="risk-cell"><span class="risk-lbl">Single-instance failure</span></div>
+        <div class="rarr">›</div>
+        <div class="mit-cell">App Service auto-restart. Persistent disk survives restarts. Reconcile picks up within ~45 seconds.</div>
+      </div>
+      <div class="risk-row">
+        <div class="risk-cell"><span class="risk-lbl">LLM provider lock-in</span></div>
+        <div class="rarr">›</div>
+        <div class="mit-cell">Prompt-driven interface (Claude Code CLI) is portable to other providers with comparable capability.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ─── SLIDE 10: ROADMAP ─── -->
+<div class="slide" id="s9">
+  <div class="slab">Roadmap</div>
+  <div class="body">
+    <div class="slide-title">What's shipping next — and what's out of scope by design</div>
+    <div class="road-grid">
+      <div class="road-col" style="border-top:2px solid var(--gold);">
+        <div class="road-col-title" style="color:var(--gold);">Shipping Next</div>
+        <div class="road-item">
+          <div class="road-item-title" style="color:var(--gold);">Dashboard Authentication</div>
+          <div class="road-item-body">Password + cookie; optional Key Vault multi-user with invite flow.</div>
+        </div>
+        <div class="road-item">
+          <div class="road-item-title" style="color:var(--gold);">Configurable Feature Flags</div>
+          <div class="road-item-body">Operators disable unneeded features via App Settings.</div>
+        </div>
+        <div class="road-item">
+          <div class="road-item-title" style="color:var(--gold);">Operational Hardening</div>
+          <div class="road-item-body">Broader audit logs and additional auto-remediation paths.</div>
+        </div>
+      </div>
+      <div class="road-col" style="border-top:2px solid var(--white);">
+        <div class="road-col-title" style="color:var(--white);">Explicitly Out of Scope</div>
+        <div class="road-item">
+          <div class="road-item-title" style="color:var(--white);">AWS or GCP support</div>
+          <div class="road-item-body">Azure-only by design.</div>
+        </div>
+        <div class="road-item">
+          <div class="road-item-title" style="color:var(--white);">Horizontal scaling</div>
+          <div class="road-item-body">Single-instance by design.</div>
+        </div>
+        <div class="road-item">
+          <div class="road-item-title" style="color:var(--white);">Multi-repository per fleet</div>
+          <div class="road-item-body">One repo per fleet by design.</div>
+        </div>
+      </div>
+    </div>
+    <div style="font-size:12px;color:var(--muted);font-style:italic;text-align:center;margin-top:14px;flex-shrink:0;">
+      Each exclusion preserves the single-Web-App simplicity that enables deployment in ~15 minutes.
+    </div>
+  </div>
+</div>
+
+<!-- ─── SLIDE 11: SUMMARY ─── -->
+<div class="slide" id="s10">
+  <div class="slab">Summary &amp; Ask</div>
+  <div class="body">
+    <div class="slide-title" style="margin-bottom:24px;">CodeLegion turns a labeled GitHub issue into a reviewed pull request — unattended, for pennies per task.</div>
+    <div class="summary-grid">
+      <div style="display:flex;flex-direction:column;gap:0;">
+        <div class="sec-label" style="margin-bottom:12px;">Why it works</div>
+        <ul class="proof-list">
+          <li>Built on proven frontier coding LLM capability</li>
+          <li>Deployable to Azure in ~15 minutes</li>
+          <li>Self-hostable, open source — no SaaS dependency</li>
+          <li>Active in production on the maintainer's projects today</li>
+        </ul>
+        <a href="https://github.com/AtaNdr/CodeLegion"
+           style="color:var(--gold);font-size:13px;margin-top:auto;padding-top:24px;display:block;text-decoration:none;letter-spacing:0.3px;">
+          github.com/AtaNdr/CodeLegion →
+        </a>
+      </div>
+      <div class="ask-card">
+        <div class="ask-title">Decisions Sought</div>
+        <div class="ask-item">
+          <div class="ask-num">1</div>
+          <div class="ask-text">Approval to extend deployment to additional teams &amp; repositories</div>
+        </div>
+        <div class="ask-item">
+          <div class="ask-num">2</div>
+          <div class="ask-text">Direction on dashboard auth — multi-user invite flow, or single shared password first?</div>
+        </div>
+        <div class="ask-item">
+          <div class="ask-num">3</div>
+          <div class="ask-text">Feedback on scope criteria — which issue classes to label agent-ready vs. keep manual</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div><!-- /deck -->
+
+<!-- ─── NAV ─── -->
+<div id="nav">
+  <button class="nav-btn" id="prev" onclick="go(-1)" disabled>← Prev</button>
+  <div id="nav-center">
+    <div class="dots" id="dots"></div>
+    <span id="slide-label">1 / 11</span>
+  </div>
+  <button class="nav-btn" id="next" onclick="go(1)">Next →</button>
+</div>
+
+<script>
+(function(){
+  var slides = document.querySelectorAll('.slide');
+  var total  = slides.length;
+  var cur    = 0;
+  var dotsEl = document.getElementById('dots');
+  var label  = document.getElementById('slide-label');
+  var bar    = document.getElementById('bar');
+  var prevB  = document.getElementById('prev');
+  var nextB  = document.getElementById('next');
+
+  for(var i=0;i<total;i++){
+    var d=document.createElement('div');
+    d.className='dot'+(i===0?' on':'');
+    (function(idx){d.onclick=function(){goTo(idx);};})(i);
+    dotsEl.appendChild(d);
+  }
+
+  function render(){
+    bar.style.width=(cur/(total-1)*100)+'%';
+    label.textContent=(cur+1)+' / '+total;
+    prevB.disabled=cur===0;
+    nextB.disabled=cur===total-1;
+    document.querySelectorAll('.dot').forEach(function(d,i){
+      d.className='dot'+(i===cur?' on':'');
+    });
+  }
+
+  function goTo(idx){
+    if(idx===cur||idx<0||idx>=total)return;
+    var forward=idx>cur;
+    slides[cur].classList.remove('active');
+    if(forward) slides[cur].classList.add('out-left');
+    var prev=cur;
+    cur=idx;
+    slides[cur].classList.add('active');
+    setTimeout(function(){slides[prev].classList.remove('out-left');},420);
+    render();
+  }
+
+  window.go=function(d){goTo(cur+d);};
+
+  document.addEventListener('keydown',function(e){
+    if(e.key==='ArrowRight'||e.key==='ArrowDown')goTo(cur+1);
+    if(e.key==='ArrowLeft' ||e.key==='ArrowUp')  goTo(cur-1);
+  });
+
+  var tx=null,ty=null;
+  document.addEventListener('touchstart',function(e){tx=e.touches[0].clientX;ty=e.touches[0].clientY;},{passive:true});
+  document.addEventListener('touchend',function(e){
+    if(tx===null)return;
+    var dx=e.changedTouches[0].clientX-tx, dy=e.changedTouches[0].clientY-ty;
+    if(Math.abs(dx)>Math.abs(dy)&&Math.abs(dx)>44) goTo(cur+(dx<0?1:-1));
+    tx=null;
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>
