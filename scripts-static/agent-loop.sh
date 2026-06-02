@@ -24,8 +24,19 @@ fi
 cd /workspace || exit 1
 
 # ---- Identity --------------------------------------------------
+# Bootstrap on first boot, or retry if a previous bootstrap left the
+# anonymous fallback (Agent-$RANDOM). The fallback was the bootstrap
+# script's way of saying "Claude failed to give me a parseable JSON
+# identity"; we want a real name in UI + GitHub comments, so re-attempt
+# on each boot until Claude succeeds. Once we have a real name it sticks.
 IDENTITY_FILE="$HOME/.agent-identity.json"
-if [[ ! -f "$IDENTITY_FILE" ]]; then
+identity_is_anonymous() {
+  [[ -f "$IDENTITY_FILE" ]] || return 0
+  local n; n=$(jq -r '.name // empty' "$IDENTITY_FILE" 2>/dev/null || echo "")
+  [[ -z "$n" || "$n" == "agent" || "$n" == "null" || "$n" == Agent-* ]]
+}
+if identity_is_anonymous; then
+  [[ -f "$IDENTITY_FILE" ]] && rm -f "$IDENTITY_FILE"
   /usr/local/bin/agent-bootstrap.sh || echo "[init] bootstrap failed"
 fi
 NAME=$(jq -r .name "$IDENTITY_FILE" 2>/dev/null || echo "agent")
@@ -33,6 +44,12 @@ NAME_LOWER=$(echo "$NAME" | tr '[:upper:]' '[:lower:]')
 EMOJI=$(jq -r .emoji "$IDENTITY_FILE" 2>/dev/null || echo "🤖")
 SIGNOFF=$(jq -r .signoff "$IDENTITY_FILE" 2>/dev/null || echo "— agent")
 CLAIM_LABEL="agent:$NAME_LOWER"
+# Did we end up anonymous anyway? Flag it so the post-online log line can
+# surface that to the operator via /agent/logs.
+case "$NAME" in
+  agent|Agent-*) ANON_IDENTITY=1 ;;
+  *) ANON_IDENTITY= ;;
+esac
 
 MODEL="${MODEL:-sonnet}"
 MODEL_LABEL="model:$MODEL"
@@ -321,7 +338,13 @@ self_update_scripts() {
 # ---- Main loop -------------------------------------------------
 log "Online. Model: $MODEL. Polling every ${POLL_INTERVAL}s."
 write_status "starting"
-remote_log "info" "online model=$MODEL idle_timeout=${IDLE_TIMEOUT}s"
+remote_log "info" "online model=$MODEL idle_timeout=${IDLE_TIMEOUT}s identity=$EMOJI/$NAME"
+if [[ -n "$ANON_IDENTITY" ]]; then
+  # Anonymous fallback in use — surface to the operator's log. The
+  # re-bootstrap on next boot will try again; if Claude keeps failing,
+  # this line tells the operator to check ANTHROPIC_API_KEY / network.
+  remote_log "warn" "identity is anonymous fallback ($NAME) — bootstrap could not pick a name. Check /tmp/bootstrap-claude.err on the VM."
+fi
 refresh_token
 self_update_scripts  # adopt any newer scripts before doing anything
 

@@ -55,15 +55,29 @@ fi
 
 # Use Claude to generate an identity. Capture stderr so we can surface real
 # failure causes (auth, rate limit, network) instead of silently falling back.
-PROMPT='Pick a distinctive identity for a coding agent. Output ONLY a JSON object with: name (a memorable single first name, capitalized), emoji (one emoji that fits the personality), voice (one short sentence describing tone), signoff (one short line ending with the name). Be creative — names should not repeat common LLM defaults like "Claude" or "Alex".'
+# The example in the prompt biases Claude toward single-line output — but we
+# also flatten newlines before the regex extraction below so multi-line JSON
+# (which Claude *does* sometimes produce) still parses cleanly. Both were
+# necessary; the older prompt + single-line regex combo failed silently and
+# every agent ended up with an anonymous Agent-$RANDOM identity.
+PROMPT='Pick a distinctive identity for a coding agent. Output ONLY a single JSON object, no code fences, no preamble. Schema: name (memorable single first name, capitalized), emoji (one emoji that fits the personality), voice (one short sentence), signoff (one short line ending with the name). Be creative — avoid common LLM defaults like "Claude" or "Alex". Example: {"name":"Lyra","emoji":"✨","voice":"calm and analytical","signoff":"— Lyra"}'
 
 resp=$(claude --dangerously-skip-permissions --model "${CLAUDE_MODEL:-claude-haiku-4-5-20251001}" --max-turns 1 -p "$PROMPT" 2>/tmp/bootstrap-claude.err || echo "")
 
-# Extract JSON from response
-identity_json=$(echo "$resp" | grep -oP '\{[^{}]*"name"[^{}]*\}' | head -1)
+# Flatten newlines so the regex can match a multi-line JSON block. The
+# regex matches the first balanced {…} block containing a "name" key.
+flat_resp=$(echo "$resp" | tr '\n' ' ')
+identity_json=$(echo "$flat_resp" | grep -oP '\{[^{}]*"name"[^{}]*\}' | head -1)
 if [[ -z "$identity_json" ]] || ! echo "$identity_json" | jq -e . &>/dev/null; then
-  echo "[bootstrap] claude produced no parseable identity. stderr:" >&2
-  [[ -s /tmp/bootstrap-claude.err ]] && head -c 500 /tmp/bootstrap-claude.err >&2
+  echo "[bootstrap] claude produced no parseable identity." >&2
+  echo "[bootstrap] raw response (first 500 chars):" >&2
+  echo "$resp" | head -c 500 >&2
+  echo >&2
+  if [[ -s /tmp/bootstrap-claude.err ]]; then
+    echo "[bootstrap] claude stderr (first 500 chars):" >&2
+    head -c 500 /tmp/bootstrap-claude.err >&2
+    echo >&2
+  fi
   write_anon "could not parse identity"
 else
   echo "$identity_json" > "$IDENTITY_FILE"
