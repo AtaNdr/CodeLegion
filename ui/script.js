@@ -716,6 +716,10 @@ setInterval(refreshFleetSection, 30000);
       suffix = ' <button class="primary" style="margin-left:.5rem; padding:.15rem .6rem; font-size:.8rem" onclick="doSelfUpdate()">Update now</button>';
     } else if (v.update?.latestVersion) {
       suffix = ' · <span class="muted">latest: ' + v.update.latestVersion + '</span>';
+    } else if (v.update?.error?.hint) {
+      // Update check failed (likely private-source-repo + no UPDATE_TOKEN).
+      // Surface the hint so the operator knows why no pill is showing.
+      suffix = ' · <span class="muted" title="' + v.update.error.hint.replace(/"/g, '&quot;') + '">(update check unavailable)</span>';
     }
     let html = prefix + 'v' + (v.version || '?');
     if (v.commit) html += ' · ' + v.commit.slice(0, 7);

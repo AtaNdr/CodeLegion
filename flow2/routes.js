@@ -16,7 +16,7 @@ import {
 import { injectFiles, cleanFiles } from '../github/repo.js';
 import { cleanAzureResources } from '../azure/uninstall.js';
 import { retireStaleAgents } from './retirement.js';
-import { selfUpdate } from '../azure/self-update.js';
+import { selfUpdate, clearUpdateCache, getUpdateInfo } from '../azure/self-update.js';
 import { reconcile, getAssignment, clearHint, getReconcileState, recordPoll, getReconcileHistory } from './reconcile.js';
 import { isPaused, setPaused, getPauseState } from './pause.js';
 import { setAppSettings } from '../azure/app-settings.js';
@@ -385,5 +385,12 @@ flow2Router.post('/admin/uninstall/:scope', requireAdminToken, async (req, res) 
 
 flow2Router.post('/admin/self-update', requireAdminToken, async (_req, res) => {
   try { res.json(await selfUpdate()); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Force a fresh update-info fetch (bypass the 5-min cache). Useful after
+// setting / changing UPDATE_TOKEN to verify it works without waiting.
+flow2Router.post('/admin/check-update', requireAdminToken, async (_req, res) => {
+  try { clearUpdateCache(); res.json(await getUpdateInfo()); }
   catch (e) { res.status(500).json({ error: e.message }); }
 });
