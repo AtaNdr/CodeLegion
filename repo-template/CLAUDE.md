@@ -74,7 +74,7 @@ If no UI exists yet: state that clearly in one sentence. Note any constraints in
 - [ ] CONTEXT.md exists, has no `<!-- explorer: empty -->` marker, and contains real project-specific content
 - [ ] ARCHITECTURE.md exists, has no marker, and explains the *why* not just the *what*
 - [ ] DESIGN.md exists, has no marker, and either documents the UI contract or clearly states there is no UI
-- [ ] A PR is open titled "Initial agent fleet context"
+- [ ] A PR is open titled "Initial CodeLegion context"
 - [ ] PR has label `agent:do-not-pick`
 - [ ] This issue is closed when the PR is merged
 
@@ -84,7 +84,7 @@ If no UI exists yet: state that clearly in one sentence. Note any constraints in
 2. Read the entire codebase before writing anything
 3. Write all three files — real content, no placeholders, no filler
 4. Commit each file separately with a descriptive message
-5. Open PR titled "Initial agent fleet context" — body should summarise key findings and list open questions
+5. Open PR titled "Initial CodeLegion context" — body should summarise key findings and list open questions
 6. Add label `agent:do-not-pick` to the PR
 7. Comment on this issue with the PR link
 8. Close this issue once the PR is merged

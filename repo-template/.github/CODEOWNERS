@@ -44,7 +44,7 @@
 /Cargo.lock              @AtaNdr/maintainers
 /go.sum                  @AtaNdr/maintainers
 
-# The agent fleet contracts themselves — changes need coordinated review
+# The CodeLegion contracts themselves — changes need coordinated review
 /CLAUDE.md               @AtaNdr/maintainers
 /COMMENT_STYLE.md        @AtaNdr/maintainers
 /DESIGN_DEFAULTS.md      @AtaNdr/maintainers

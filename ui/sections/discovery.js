@@ -91,7 +91,7 @@ export function renderDiscovery({ discovery, missing, topError, setupInline = ''
   </div>
 
   <div class="card spread" style="margin-top:.5rem; border-color: var(--err)">
-    <span class="muted" style="font-size:.88rem">Tear down CodeLegion — remove the agent-fleet files from the repo, wipe every Azure resource in the RG (except this Web App and its plan), or both. The fleet is paused first; you can re-install by re-running Infrastructure setup.</span>
+    <span class="muted" style="font-size:.88rem">Tear down CodeLegion — remove the CodeLegion files from the repo, wipe every Azure resource in the RG (except this Web App and its plan), or both. The fleet is paused first; you can re-install by re-running Infrastructure setup.</span>
     <button class="danger" onclick="showUninstallModal()">Uninstall…</button>
   </div>
 

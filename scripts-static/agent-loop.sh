@@ -259,7 +259,7 @@ If no UI exists: say so in one sentence and note any constraints affecting futur
 - [ ] `CONTEXT.md` has no `<!-- explorer: empty -->` marker and contains real, project-specific content
 - [ ] `ARCHITECTURE.md` has no marker and explains the *why*
 - [ ] `DESIGN.md` has no marker and either documents the UI contract or clearly states there's no UI
-- [ ] A PR titled "Initial agent fleet context" is open, labelled `agent:do-not-pick`
+- [ ] A PR titled "Initial CodeLegion context" is open, labelled `agent:do-not-pick`
 - [ ] This issue is referenced from the PR and closes when the PR merges
 
 ## Steps
@@ -267,7 +267,7 @@ If no UI exists: say so in one sentence and note any constraints affecting futur
 1. Create a branch and push it
 2. Read the entire codebase before writing anything
 3. Write all three files — real content, no placeholders, no filler
-4. Open the PR titled "Initial agent fleet context"; body summarises findings and lists open questions
+4. Open the PR titled "Initial CodeLegion context"; body summarises findings and lists open questions
 5. Add label `agent:do-not-pick` to the PR
 6. Comment on this issue with the PR link
 
@@ -277,7 +277,7 @@ OBEOF
 
   # The controller normally creates this at inject time; this is a fallback.
   gh issue create \
-    --title "Onboard the fleet: write CONTEXT.md, ARCHITECTURE.md, DESIGN.md" \
+    --title "Onboard CodeLegion: write CONTEXT.md, ARCHITECTURE.md, DESIGN.md" \
     --label "agent-ready" --label "$ONBOARDING_LABEL" \
     --body "$body" >/dev/null 2>&1 || log "onboarding create returned nonzero (may already exist)" >&2
 
@@ -500,7 +500,7 @@ Every file must have its '<!-- explorer: empty -->' marker replaced with real, t
 Steps:
 1. git checkout -b $BRANCH && git push -u origin $BRANCH
 2. Write all three files with real content
-3. Open a PR titled 'Initial agent fleet context' — body summarises findings and open questions
+3. Open a PR titled 'Initial CodeLegion context' — body summarises findings and open questions
 4. Add label agent:do-not-pick to the PR
 5. Comment on this issue with the PR link. The human merges the PR, which closes this issue and unblocks regular work."
   else

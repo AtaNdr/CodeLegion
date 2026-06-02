@@ -123,7 +123,7 @@ export async function injectFiles({ dryRun = false } = {}) {
     try {
       await putFile(filePath, content, {
         sha: current?.sha,
-        message: current ? `agent-fleet v2: update ${filePath}` : `agent-fleet v2: add ${filePath}`,
+        message: current ? `codelegion: update ${filePath}` : `codelegion: add ${filePath}`,
       });
       results.push({ path: filePath, action: current ? 'updated' : 'created' });
     } catch (e) {
@@ -155,7 +155,7 @@ export async function cleanFiles({ dryRun = false } = {}) {
     try {
       await deleteFile(filePath, {
         sha: current.sha,
-        message: `agent-fleet v2: remove ${filePath}`,
+        message: `codelegion: remove ${filePath}`,
       });
       results.push({ path: filePath, action: 'deleted' });
     } catch (e) {
@@ -262,7 +262,7 @@ function adminPermError() {
 // to self-create it. The agent then just claims and executes.
 
 export const ONBOARDING_LABEL = 'agent:onboarding';
-export const ONBOARDING_TITLE = 'Onboard the fleet: write CONTEXT.md, ARCHITECTURE.md, DESIGN.md';
+export const ONBOARDING_TITLE = 'Onboard CodeLegion: write CONTEXT.md, ARCHITECTURE.md, DESIGN.md';
 
 const ONBOARDING_BODY = `## What this is
 
@@ -295,14 +295,14 @@ Read every source file in the repo — don't skim. Read \`package.json\` / \`go.
 - [ ] \`CONTEXT.md\` has no \`<!-- explorer: empty -->\` marker and contains real, project-specific content
 - [ ] \`ARCHITECTURE.md\` has no marker and explains the *why*
 - [ ] \`DESIGN.md\` has no marker and documents the UI contract or states there's no UI
-- [ ] A PR titled "Initial agent fleet context" is open, labelled \`agent:do-not-pick\`
+- [ ] A PR titled "Initial CodeLegion context" is open, labelled \`agent:do-not-pick\`
 
 ## Steps
 
 1. Create a branch and push it
 2. Read the entire codebase before writing anything
 3. Write all three files — real content, no placeholders
-4. Open the PR titled "Initial agent fleet context"; add label \`agent:do-not-pick\`
+4. Open the PR titled "Initial CodeLegion context"; add label \`agent:do-not-pick\`
 5. Comment on this issue with the PR link
 
 Be thorough — every future agent depends on these files.`;

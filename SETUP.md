@@ -158,7 +158,7 @@ To bootstrap the gate, **the controller creates the onboarding issue itself** wh
 
 1. Claims the `agent:onboarding` issue.
 2. Reads the entire repository and writes real CONTEXT / ARCHITECTURE / DESIGN content.
-3. Opens a PR titled **"Initial agent fleet context"** (labelled `agent:do-not-pick`).
+3. Opens a PR titled **"Initial CodeLegion context"** (labelled `agent:do-not-pick`).
 
 **Review and merge that PR** to unblock regular work. This is a one-time bootstrap per repository.
 
@@ -248,7 +248,7 @@ The controller serves agent shell scripts at `/scripts/*`. Each VM downloads the
 
 From the dashboard's Environment & discovery card, click **Uninstall**. Three scopes:
 
-- **Clean repo files** — removes the agent-fleet templates from your GitHub repo (CLAUDE.md, DO_NOT_TOUCH.md, ISSUE_TEMPLATEs, …). Issues, PRs, and your own code are untouched.
+- **Clean repo files** — removes the CodeLegion templates from your GitHub repo (CLAUDE.md, DO_NOT_TOUCH.md, ISSUE_TEMPLATEs, …). Issues, PRs, and your own code are untouched.
 - **Clean Azure resources** — deletes every resource in the resource group except this Web App and its App Service Plan. Pauses the fleet first; leaves the fleet paused after, so a stale reconcile doesn't spin replacement VMs into a network that no longer exists.
 - **Both** — runs both, in sequence.
 

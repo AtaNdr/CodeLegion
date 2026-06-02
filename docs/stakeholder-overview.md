@@ -7,7 +7,7 @@ size: 16:9
 
 # CodeLegion
 
-**Autonomous agent fleet for GitHub issue resolution.**
+**A fleet of autonomous Claude Code agents for GitHub issue resolution.**
 
 Stakeholder briefing — strategic and technical overview.
 

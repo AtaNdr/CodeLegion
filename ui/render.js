@@ -145,7 +145,7 @@ export function renderPage({ phase1, discovery, missing, topError, fleet, cost, 
           <input type="radio" name="scope" value="repo" required style="margin-top:.2rem">
           <div>
             <div><strong>Clean repo files</strong></div>
-            <div class="muted" style="font-size:.85rem">Removes agent-fleet templates from your GitHub repo (CLAUDE.md, DO_NOT_TOUCH.md, ISSUE_TEMPLATEs, …). Issues, PRs, and your own code untouched.</div>
+            <div class="muted" style="font-size:.85rem">Removes the CodeLegion templates from your GitHub repo (CLAUDE.md, DO_NOT_TOUCH.md, ISSUE_TEMPLATEs, …). Issues, PRs, and your own code untouched.</div>
           </div>
         </label>
         <label style="display:flex; gap:.5rem; align-items:flex-start; padding:.35rem; cursor:pointer">
