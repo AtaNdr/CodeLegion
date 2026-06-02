@@ -169,9 +169,29 @@ self_deallocate() {
   log "Idle timeout — deallocating."
   write_status "deallocating"
   refresh_token
-  # Release any forgotten claim
+  # Release any forgotten claim — but ONLY when this agent has no open PR
+  # for the issue. A completed task leaves the claim label AND an open PR;
+  # unconditionally stripping the claim here (the old behaviour) caused
+  # reconcile to re-dispatch the same issue to another agent on the next
+  # tick, producing a duplicate PR. The branch convention is
+  # "<name_lower>/issue-<N>-<slug>", so an open PR with a matching head
+  # ref is a positive signal that work landed and the claim is real.
+  # The post-Claude PR-detection earlier in the loop already handles the
+  # "failed before opening a PR" case directly; this block is the
+  # last-ditch backstop for it.
   local claimed; claimed=$(gh issue list --label "$CLAIM_LABEL" --state open --json number -q '.[].number' 2>/dev/null || echo "")
   for I in $claimed; do
+    local my_pr_count
+    my_pr_count=$(gh pr list --state open --json headRefName \
+                  -q '[.[].headRefName | select(startswith("'"$NAME_LOWER"'/issue-'"$I"'-"))] | length' \
+                  2>/dev/null || echo "0")
+    if [[ "$my_pr_count" =~ ^[0-9]+$ ]] && (( my_pr_count > 0 )); then
+      log "Keeping claim on #$I — open PR from this agent exists"
+      remote_log "info" "self_deallocate: keeping claim on #$I (open PR exists)"
+      continue
+    fi
+    log "Releasing forgotten claim on #$I"
+    remote_log "info" "self_deallocate: releasing forgotten claim on #$I"
     gh issue edit "$I" --remove-label "$CLAIM_LABEL" --add-label "agent-ready" 2>/dev/null || true
   done
 
