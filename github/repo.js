@@ -21,7 +21,6 @@ export const ALWAYS_OVERWRITE = [
   '.github/ISSUE_TEMPLATE/agent-task.md',
   '.github/ISSUE_TEMPLATE/free-form-request.md',
   '.github/labels.yml',
-  '.github/workflows/agent-pr-rejection.yml',
 ];
 
 export const CREATE_IF_MISSING = [
@@ -127,15 +126,7 @@ export async function injectFiles({ dryRun = false } = {}) {
       });
       results.push({ path: filePath, action: current ? 'updated' : 'created' });
     } catch (e) {
-      // .github/workflows/* requires the GitHub App's `workflows: write`
-      // scope; without it the Contents-API write 403s and the inject
-      // looks like a partial success. Surface the actionable hint so
-      // the operator knows what to fix.
-      let msg = e.message;
-      if (filePath.startsWith('.github/workflows/') && /403|not accessible by integration/i.test(msg)) {
-        msg += ' — GitHub App is missing the "workflows: write" permission. Add it under the App\'s Permissions tab, then click the "Review and accept new permissions" banner on the installation, then re-run Inject.';
-      }
-      results.push({ path: filePath, action: 'error', error: msg });
+      results.push({ path: filePath, action: 'error', error: e.message });
     }
 
     await sleep(200);  // throttle to stay well under Contents API secondary limits

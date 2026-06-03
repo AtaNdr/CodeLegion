@@ -133,9 +133,8 @@ The **Configure App** button in the setup wizard is the entry point — open it 
      - Issues: **Read & write**
      - Pull requests: **Read & write**
      - Metadata: **Read** (auto-selected)
-     - Workflows: **Read & write**
      - Administration: **Read & write** — required for branch protection.
-   - **Subscribe to events** — Issues, Issue comment, Pull request, Pull request review.
+   - **Subscribe to events** — Issues, Issue comment, Pull request, Pull request review. The Pull-request-review subscription is what lets the controller re-queue an issue when you request changes on its PR.
 4. Create the App. Note the **App ID** at the top of the App's settings page. Generate a private key and download the `.pem` file.
 5. Install the App on your target repository (the App's **Install App** tab). After install, note the **Installation ID** from the URL: `.../installations/<ID>`.
 6. Back in the wizard modal: paste App ID, Installation ID, repo owner, repo name, and the contents of the `.pem` file. Click **Save**.

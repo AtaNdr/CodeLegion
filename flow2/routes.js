@@ -18,6 +18,7 @@ import { cleanAzureResources } from '../azure/uninstall.js';
 import { retireStaleAgents } from './retirement.js';
 import { selfUpdate, clearUpdateCache, getUpdateInfo } from '../azure/self-update.js';
 import { reconcile, getAssignment, clearHint, getReconcileState, recordPoll, getReconcileHistory } from './reconcile.js';
+import { handlePullRequestReview } from './pr-rejection.js';
 import { isPaused, setPaused, getPauseState } from './pause.js';
 import { setAppSettings } from '../azure/app-settings.js';
 import { getPricing } from '../anthropic/pricing.js';
@@ -56,9 +57,13 @@ function requireAdminToken(req, res, next) {
 }
 
 // ---- Webhook ----------------------------------------------------
-// The webhook is now just a low-latency trigger for the reconcile loop —
-// it doesn't decide anything itself. Reconcile lists unclaimed issues and
-// assigns/wakes/spins as needed.
+// The webhook is mostly just a low-latency trigger for the reconcile loop.
+// The exception is pull_request_review with changes_requested, which the
+// controller handles directly: it re-labels the linked issue (drops the
+// claim, adds agent-ready + agent:needs-revision) and kicks reconcile.
+// Previously that work was done by a YAML workflow injected into the
+// target repo, which required the GitHub App to have workflows:write and
+// the workflow file to be present — both silent failure modes.
 flow2Router.post('/webhook', (req, res) => {
   const raw = req.body;  // Buffer (mounted with express.raw in index.js)
   if (!Buffer.isBuffer(raw)) return res.status(400).send('expected raw body');
@@ -70,6 +75,13 @@ flow2Router.post('/webhook', (req, res) => {
   // Fire-and-forget: only issue/PR events can change the work queue.
   if (['issues', 'issue_comment', 'pull_request'].includes(event)) {
     reconcile().catch((e) => console.error('[webhook→reconcile]', e.message));
+  }
+  if (event === 'pull_request_review') {
+    let payload;
+    try { payload = JSON.parse(raw.toString('utf8')); } catch { payload = null; }
+    if (payload) {
+      handlePullRequestReview(payload).catch((e) => console.error('[webhook→pr-rejection]', e.message));
+    }
   }
 });
 

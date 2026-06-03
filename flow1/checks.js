@@ -179,12 +179,6 @@ export const checks = [
         issues: 'write',
         pull_requests: 'write',
         administration: 'write',
-        // Writing files under .github/workflows/ requires its own scope —
-        // GitHub blocks Contents-API writes there without it. The repo
-        // template's agent-pr-rejection.yml needs this; without it inject
-        // silently fails on that one file and PR-rejection feedback never
-        // re-queues the issue.
-        workflows: 'write',
       };
       const perms = install.permissions || {};
       const missingPerms = [];
