@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security disclosure
+    url: https://github.com/AtaNdr/CodeLegion/blob/main/SECURITY.md
+    about: Please do NOT file a public issue for security reports. See SECURITY.md.
+  - name: Questions and discussion
+    url: https://github.com/AtaNdr/CodeLegion/discussions
+    about: For setup help, operational questions, or feature ideas worth a conversation, use Discussions.
