@@ -9,5 +9,7 @@ Supplementary documentation that lives outside the project root.
 | [`stakeholder-overview.md`](./stakeholder-overview.md) | Tech and strategic stakeholders | High-level briefing for executive review. Multi-page; suitable for export to slides via Marp or pandoc. An HTML version of this deck also lives in this folder. |
 | [`CodeLegion_Deck.html`](./CodeLegion_Deck.html) | Tech and strategic stakeholders | Self-contained HTML slide deck with the same content as `stakeholder-overview.md`. |
 | [`engineering.md`](./engineering.md) | Engineers, technical reviewers | Tech profile (stack, dependencies, code layout) + a commit-by-commit timeline of the recent development session with token and cost estimates. |
+| [`reviews.md`](./reviews.md) | Maintainer (working file) | Collected AI-evaluator reviews of the project. New responses are added here using the template; they're then ported into the landing page's `Reviews` section. |
+| [`ai-review-prompt.md`](./ai-review-prompt.md) | Maintainer (workflow) | The prompt to paste into ChatGPT / Gemini / Grok / etc. when collecting more AI reviews. Includes guidance on what makes a useful response vs. a generic one. |
 
 For step-by-step deployment instructions see [`../SETUP.md`](../SETUP.md). For the architecture specification see [`../PLAN.md`](../PLAN.md). For the security model and disclosure process see [`../SECURITY.md`](../SECURITY.md).

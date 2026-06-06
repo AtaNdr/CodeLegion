@@ -494,6 +494,131 @@ h1.hero-title {
 }
 
 /* =====================================================================
+   COMMUNITY STATS (GitHub-derived, live fetch + fallback)
+   ===================================================================== */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  margin-top: 36px;
+}
+@media (max-width: 720px) {
+  .stats-grid { grid-template-columns: repeat(2, 1fr); }
+}
+.gh-stat {
+  padding: 22px 18px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  text-align: center;
+  transition: transform 0.2s, border-color 0.2s, background 0.2s;
+  position: relative;
+}
+.gh-stat:hover {
+  transform: translateY(-4px);
+  border-color: var(--gold);
+  background: var(--card-hover);
+}
+.gh-stat .icon {
+  width: 36px; height: 36px;
+  margin: 0 auto 12px;
+  display: flex; align-items: center; justify-content: center;
+  background: color-mix(in srgb, var(--gold) 14%, transparent);
+  color: var(--gold);
+  border-radius: 10px;
+}
+.gh-stat .icon svg { width: 20px; height: 20px; }
+.gh-stat .num {
+  font-size: 32px;
+  font-weight: 800;
+  color: var(--text);
+  font-family: var(--mono);
+  line-height: 1;
+  margin-bottom: 6px;
+  letter-spacing: -0.02em;
+}
+.gh-stat .lbl {
+  font-size: 11px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  font-weight: 600;
+}
+.gh-stat.loading .num { color: var(--muted); }
+
+/* =====================================================================
+   REVIEWS (AI-evaluator testimonials)
+   ===================================================================== */
+.reviews-disclosure {
+  font-size: 13px;
+  color: var(--muted);
+  margin-top: 8px;
+  margin-bottom: 16px;
+  max-width: 720px;
+}
+.reviews-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 18px;
+  margin-top: 28px;
+}
+.review {
+  padding: 24px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  position: relative;
+  transition: transform 0.2s, border-color 0.2s, background 0.2s;
+  display: flex;
+  flex-direction: column;
+}
+.review:hover {
+  transform: translateY(-4px);
+  border-color: var(--border-strong);
+  background: var(--card-hover);
+}
+.review-header {
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 14px;
+}
+.review-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 10px; font-weight: 700;
+  letter-spacing: 1.5px; text-transform: uppercase;
+  color: var(--gold);
+  padding: 4px 8px;
+  background: color-mix(in srgb, var(--gold) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--gold) 30%, transparent);
+  border-radius: 999px;
+}
+.review-model {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+.review-provider {
+  font-size: 12px;
+  color: var(--muted);
+}
+.review-quote {
+  font-size: 15px;
+  color: var(--text);
+  line-height: 1.55;
+  font-style: italic;
+  margin-bottom: 12px;
+  position: relative;
+  padding-left: 14px;
+  border-left: 2px solid var(--gold);
+}
+.review-pending {
+  font-size: 14px;
+  color: var(--muted);
+  font-style: italic;
+  text-align: center;
+  padding: 20px 0;
+}
+
+/* =====================================================================
    CTA SECTION
    ===================================================================== */
 .cta-section {
@@ -844,6 +969,54 @@ code, .code {
   </div>
 </section>
 
+<!-- ───── COMMUNITY STATS ───── -->
+<section id="community">
+  <div class="wrap-x">
+    <div class="reveal">
+      <span class="label">Community</span>
+      <h2>Built in public.<br><span class="text-grad">Numbers, live.</span></h2>
+      <p class="lead">Pulled from GitHub on page load. Refreshes whenever you do.</p>
+    </div>
+    <div class="stats-grid">
+      <div class="gh-stat loading reveal" id="gh-stat-stars">
+        <div class="icon"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg></div>
+        <div class="num" id="stat-stars">—</div>
+        <div class="lbl">Stars</div>
+      </div>
+      <div class="gh-stat loading reveal delay-1" id="gh-stat-forks">
+        <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="6" cy="3" r="2"/><circle cx="18" cy="3" r="2"/><circle cx="12" cy="21" r="2"/><path d="M6 5v3a3 3 0 0 0 3 3h6a3 3 0 0 0 3-3V5M12 11v8"/></svg></div>
+        <div class="num" id="stat-forks">—</div>
+        <div class="lbl">Forks</div>
+      </div>
+      <div class="gh-stat loading reveal delay-2" id="gh-stat-contributors">
+        <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
+        <div class="num" id="stat-contributors">—</div>
+        <div class="lbl">Contributors</div>
+      </div>
+      <div class="gh-stat loading reveal delay-3" id="gh-stat-releases">
+        <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="7.5 4.21 12 6.81 16.5 4.21"/><polyline points="7.5 19.79 7.5 14.6 3 12"/><polyline points="21 12 16.5 14.6 16.5 19.79"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></div>
+        <div class="num" id="stat-releases">—</div>
+        <div class="lbl">Releases</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ───── REVIEWS ───── -->
+<section id="reviews">
+  <div class="wrap-x">
+    <div class="reveal">
+      <span class="label">Reviews</span>
+      <h2>What <span class="text-grad">AI evaluators</span> say</h2>
+      <p class="lead">Honest first-look reviews from third-party AI models, prompted with the project's README, SETUP, and architecture spec.</p>
+      <p class="reviews-disclosure">These are AI-generated evaluations, not human testimonials. They're clearly labelled with the model that produced each one. Real-user testimonials replace these as they come in — share yours via GitHub Discussions.</p>
+    </div>
+    <div class="reviews-grid" id="reviewsGrid">
+      <!-- Cards rendered by JS from the `reviews` array. -->
+    </div>
+  </div>
+</section>
+
 <!-- ───── CTA ───── -->
 <section class="cta-section">
   <div class="wrap-x">
@@ -941,6 +1114,124 @@ code, .code {
     }
   }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
   document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+})();
+
+/* =====================================================================
+   GitHub stats — live fetch with fallback. Repo must be PUBLIC for
+   the unauthenticated calls to succeed; if private, the API returns
+   404 and the stats stay as "—".
+   ===================================================================== */
+(function () {
+  const REPO = 'AtaNdr/CodeLegion';
+  function setVal(id, n) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.parentElement.classList.remove('loading');
+    el.textContent = typeof n === 'number' ? n.toLocaleString() : '—';
+  }
+  function animateTo(id, target) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.parentElement.classList.remove('loading');
+    const dur = 800;
+    const t0 = performance.now();
+    function tick(t) {
+      const k = Math.min(1, (t - t0) / dur);
+      const eased = 1 - Math.pow(1 - k, 3); // ease-out cubic
+      el.textContent = Math.round(target * eased).toLocaleString();
+      if (k < 1) requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+  }
+  async function load() {
+    try {
+      const headers = { 'Accept': 'application/vnd.github+json' };
+      const repoR = await fetch('https://api.github.com/repos/' + REPO, { headers });
+      if (!repoR.ok) return; // repo private or rate-limited — keep "—"
+      const repo = await repoR.json();
+      animateTo('stat-stars', repo.stargazers_count || 0);
+      animateTo('stat-forks', repo.forks_count || 0);
+      // contributors and releases need separate calls
+      const [cR, relR] = await Promise.all([
+        fetch('https://api.github.com/repos/' + REPO + '/contributors?per_page=100&anon=true', { headers }),
+        fetch('https://api.github.com/repos/' + REPO + '/releases?per_page=100', { headers }),
+      ]);
+      if (cR.ok)   animateTo('stat-contributors', (await cR.json()).length);
+      if (relR.ok) animateTo('stat-releases',    (await relR.json()).length);
+    } catch { /* network blip — leave fallback */ }
+  }
+  // Trigger when the stats section scrolls into view, not on page load,
+  // so the counter animation lines up with the reveal.
+  const target = document.getElementById('gh-stat-stars');
+  if (target && 'IntersectionObserver' in window) {
+    const io = new IntersectionObserver((entries, obs) => {
+      for (const e of entries) if (e.isIntersecting) { load(); obs.disconnect(); }
+    }, { threshold: 0.3 });
+    io.observe(target);
+  } else {
+    load();
+  }
+})();
+
+/* =====================================================================
+   Review cards — render from a JS array so swapping in new ones is
+   a one-object edit. AI evaluations until real-user testimonials
+   arrive.
+   ===================================================================== */
+const reviews = [
+  {
+    model: 'Claude Opus 4.7',
+    provider: 'Anthropic',
+    quote: 'The single-Web-App design is the strongest choice — one Azure App Service holds every secret, spawns its own fleet of agent VMs on demand, and surfaces operations through a coherent dashboard, under 6K lines of controller code. One concern: state on the local persistent disk caps horizontal scaling, which is a deliberate trade-off worth knowing. Best fit: teams of 1–20 engineers with a steady backlog of well-scoped GitHub issues.',
+  },
+  // Add more here once the user pastes responses from ChatGPT, Gemini, etc.
+  // {
+  //   model: 'ChatGPT 4o',
+  //   provider: 'OpenAI',
+  //   quote: '...',
+  // },
+];
+
+(function renderReviews() {
+  const grid = document.getElementById('reviewsGrid');
+  if (!grid) return;
+  if (reviews.length === 0) {
+    grid.innerHTML = '<div class="review-pending">Reviews coming soon — share yours via GitHub Discussions.</div>';
+    return;
+  }
+  function escapeHtml(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, c =>
+      ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])
+    );
+  }
+  grid.innerHTML = reviews.map((r, i) => {
+    const delay = i % 3 === 1 ? 'delay-1' : i % 3 === 2 ? 'delay-2' : '';
+    return `
+      <article class="review reveal ${delay}">
+        <header class="review-header">
+          <span class="review-badge">
+            <svg viewBox="0 0 24 24" width="10" height="10" fill="currentColor" aria-hidden="true"><path d="M12 2L2 7v10l10 5 10-5V7L12 2zm0 2.18L19.82 8 12 11.82 4.18 8 12 4.18zM4 9.82l7 3.5v7.36l-7-3.5V9.82zm9 10.86v-7.36l7-3.5v7.36l-7 3.5z"/></svg>
+            AI Review
+          </span>
+          <div>
+            <div class="review-model">${escapeHtml(r.model)}</div>
+            <div class="review-provider">${escapeHtml(r.provider)}</div>
+          </div>
+        </header>
+        <p class="review-quote">${escapeHtml(r.quote)}</p>
+      </article>`;
+  }).join('');
+
+  // Re-observe the new cards for fade-in.
+  if ('IntersectionObserver' in window) {
+    const io = new IntersectionObserver((entries) => {
+      for (const e of entries) if (e.isIntersecting) {
+        e.target.classList.add('visible');
+        io.unobserve(e.target);
+      }
+    }, { threshold: 0.12 });
+    grid.querySelectorAll('.reveal').forEach(el => io.observe(el));
+  }
 })();
 
 /* =====================================================================
