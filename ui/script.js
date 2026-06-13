@@ -764,15 +764,18 @@ const THEME_KEY = 'cl-theme';
   // Otherwise leave the attribute absent → auto mode.
 })();
 function cycleTheme() {
+  // Two-state toggle between explicit light and dark. On first click from
+  // auto mode, resolve the system preference and flip to its opposite so
+  // the click visibly changes something.
   const cur = document.documentElement.getAttribute('data-theme');
-  const next = !cur ? 'light' : cur === 'light' ? 'dark' : null;
-  if (next === null) {
-    document.documentElement.removeAttribute('data-theme');
-    try { localStorage.removeItem(THEME_KEY); } catch {}
-  } else {
-    document.documentElement.setAttribute('data-theme', next);
-    try { localStorage.setItem(THEME_KEY, next); } catch {}
+  let effective = cur;
+  if (!effective) {
+    effective = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+      ? 'dark' : 'light';
   }
+  const next = effective === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  try { localStorage.setItem(THEME_KEY, next); } catch {}
 }
 
 // Wire up header buttons + dismiss handlers + ESC + click-outside.

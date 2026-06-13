@@ -192,16 +192,21 @@ export const STYLES = `
   }
   #notifIconBtn .icon-badge { background: var(--info); }
 
-  /* Theme-toggle icon — show exactly one of three (auto / light / dark)
-     based on the current data-theme attribute on <html>. With no
-     attribute set we show the "auto" half-disc icon so the user can see
-     they're tracking the system preference. */
+  /* Theme-toggle icon — show whichever icon matches the *current effective*
+     theme (light → sun, dark → moon). Clicking flips to the other. Auto
+     mode (no data-theme attribute) tracks the system preference via the
+     prefers-color-scheme media query. */
   #themeIconBtn .theme-sun,
-  #themeIconBtn .theme-moon,
-  #themeIconBtn .theme-auto { display: none; }
-  html:not([data-theme]) #themeIconBtn .theme-auto { display: block; }
+  #themeIconBtn .theme-moon { display: none; }
+  html:not([data-theme]) #themeIconBtn .theme-sun { display: block; }
+  @media (prefers-color-scheme: dark) {
+    html:not([data-theme]) #themeIconBtn .theme-sun { display: none; }
+    html:not([data-theme]) #themeIconBtn .theme-moon { display: block; }
+  }
   html[data-theme="light"] #themeIconBtn .theme-sun { display: block; }
+  html[data-theme="light"] #themeIconBtn .theme-moon { display: none; }
   html[data-theme="dark"]  #themeIconBtn .theme-moon { display: block; }
+  html[data-theme="dark"]  #themeIconBtn .theme-sun { display: none; }
   #themeIconBtn:hover { transform: rotate(15deg); transition: transform .15s, background .15s, border-color .15s; }
 
   /* ─────────── Settings drawer ─────────── */
