@@ -8,14 +8,16 @@ Pick up issues labeled `agent-ready` AND tagged with your model. Implement them,
 
 ## Always read these before coding
 
-- **`CONTEXT.md`** — what this project is, the stack, conventions, commands
-- **`ARCHITECTURE.md`** — the *why* behind the structure
-- **`DESIGN.md`** — the UI contract (mandatory if your task touches any UI)
-- **`DESIGN_DEFAULTS.md`** — universal accessibility and quality floors
-- **`COMMENT_STYLE.md`** — how to format comments and PR descriptions for fast human comprehension. Apply on every comment you post.
-- **`KNOWN_ISSUES.md`** — things that look broken but aren't
-- **`LESSONS.md`** — past corrections, append-only learning
-- **`DO_NOT_TOUCH.md`** — paths and files agents must not edit
+All CodeLegion-injected context lives in the `codelegion/` directory at the repo root.
+
+- **`codelegion/CONTEXT.md`** — what this project is, the stack, conventions, commands
+- **`codelegion/ARCHITECTURE.md`** — the *why* behind the structure
+- **`codelegion/DESIGN.md`** — the UI contract (mandatory if your task touches any UI)
+- **`codelegion/DESIGN_DEFAULTS.md`** — universal accessibility and quality floors
+- **`codelegion/COMMENT_STYLE.md`** — how to format comments and PR descriptions for fast human comprehension. Apply on every comment you post.
+- **`codelegion/KNOWN_ISSUES.md`** — things that look broken but aren't
+- **`codelegion/LESSONS.md`** — past corrections, append-only learning
+- **`codelegion/DO_NOT_TOUCH.md`** — paths and files agents must not edit
 
 If any of those files still has the marker `<!-- explorer: empty -->`, **do not start regular work**. The fleet is not properly onboarded yet. Do this:
 1. Add `agent:blocked` to the current issue and comment explaining why
@@ -39,7 +41,7 @@ You are the agent responsible for this. Do not block or unclaim it. Do not read 
 
 Read every source file in the repo — don't skim. Then write these three files from scratch:
 
-### CONTEXT.md
+### codelegion/CONTEXT.md
 Answer: what is this project, who uses it, and how do I work in it?
 - One-paragraph description of what the project does and who it's for
 - Stack: language(s), framework(s), database, test framework, package manager — be specific about versions if visible
@@ -49,7 +51,7 @@ Answer: what is this project, who uses it, and how do I work in it?
 - Gotchas: anything that would surprise a new contributor
 - How to run the project locally end-to-end
 
-### ARCHITECTURE.md
+### codelegion/ARCHITECTURE.md
 Answer: why is the code structured the way it is?
 - How the major pieces communicate — data flow, API boundaries, event paths
 - Why the top-level split exists (not just what the folders are, but why they're separate)
@@ -58,7 +60,7 @@ Answer: why is the code structured the way it is?
 - Anywhere the architecture is under stress or in transition
 - Use "OPEN QUESTION: ..." for anything you're uncertain about
 
-### DESIGN.md
+### codelegion/DESIGN.md
 If the project has UI:
 - Frameworks and libraries used for UI (component library, CSS approach, animation, etc.)
 - Design tokens in use: colours, spacing scale, typography, breakpoints — list actual values
@@ -71,9 +73,9 @@ If no UI exists yet: state that clearly in one sentence. Note any constraints in
 
 ## Acceptance criteria
 
-- [ ] CONTEXT.md exists, has no `<!-- explorer: empty -->` marker, and contains real project-specific content
-- [ ] ARCHITECTURE.md exists, has no marker, and explains the *why* not just the *what*
-- [ ] DESIGN.md exists, has no marker, and either documents the UI contract or clearly states there is no UI
+- [ ] codelegion/CONTEXT.md exists, has no `<!-- explorer: empty -->` marker, and contains real project-specific content
+- [ ] codelegion/ARCHITECTURE.md exists, has no marker, and explains the *why* not just the *what*
+- [ ] codelegion/DESIGN.md exists, has no marker, and either documents the UI contract or clearly states there is no UI
 - [ ] A PR is open titled "Initial CodeLegion context"
 - [ ] PR has label `agent:do-not-pick`
 - [ ] This issue is closed when the PR is merged
@@ -102,7 +104,7 @@ If no UI exists yet: state that clearly in one sentence. Note any constraints in
 - Never commit directly to `main` or `master`
 - Never edit: `.github/`, `infra/`, secrets files, database migrations — flag for human
 - Never add a new dependency without flagging it explicitly in the PR description
-- Never touch files listed in `DO_NOT_TOUCH.md`
+- Never touch files listed in `codelegion/DO_NOT_TOUCH.md`
 - Every PR must include tests covering the change
 - If you edit the same file 5+ times in one session, stop and ask for help
 - If a test keeps failing after 3 attempts, stop and ask for help
@@ -110,13 +112,13 @@ If no UI exists yet: state that clearly in one sentence. Note any constraints in
 ## UI work — extra rules
 
 When the task touches UI:
-1. Read `DESIGN.md` *and* `DESIGN_DEFAULTS.md` before writing any markup or styles
-2. Use the libraries, tokens, and patterns named in `DESIGN.md` — no inventing new ones
-3. If `DESIGN.md` doesn't cover what you need, post a question in the issue rather than making it up
+1. Read `codelegion/DESIGN.md` *and* `codelegion/DESIGN_DEFAULTS.md` before writing any markup or styles
+2. Use the libraries, tokens, and patterns named in `codelegion/DESIGN.md` — no inventing new ones
+3. If `codelegion/DESIGN.md` doesn't cover what you need, post a question in the issue rather than making it up
 4. Run accessibility checks: keyboard navigation, focus visibility, contrast, screen reader semantics
 5. Test responsive behavior at narrow widths (< 400px) and wide (> 1200px)
 
-If `DESIGN.md` and `DESIGN_DEFAULTS.md` conflict, the defaults win — they are non-negotiable floors.
+If `codelegion/DESIGN.md` and `codelegion/DESIGN_DEFAULTS.md` conflict, the defaults win — they are non-negotiable floors.
 
 ## Workflow
 
@@ -163,7 +165,7 @@ When `agent:approved` appears (human approved or edited the proposal):
 
 ### Step 4 — Code
 
-1. Read context files: CLAUDE.md, CONTEXT.md, ARCHITECTURE.md, DESIGN.md (if UI), DESIGN_DEFAULTS.md, KNOWN_ISSUES.md, LESSONS.md, DO_NOT_TOUCH.md
+1. Read context files: CLAUDE.md, codelegion/CONTEXT.md, codelegion/ARCHITECTURE.md, codelegion/DESIGN.md (if UI), codelegion/DESIGN_DEFAULTS.md, codelegion/KNOWN_ISSUES.md, codelegion/LESSONS.md, codelegion/DO_NOT_TOUCH.md
 2. Post a plan as a comment on the issue
 3. Branch: `<your-name>/issue-<N>-<short-slug>`
 4. Implement
@@ -242,7 +244,7 @@ Comment with a specific question, add `agent:blocked`, stop.
 
 ## When a PR is rejected
 
-Read review comments via `gh pr view <num>`. Address each. Append a 1–2 line entry to `LESSONS.md`. Push more commits to the same branch — no force-push.
+Read review comments via `gh pr view <num>`. Address each. Append a 1–2 line entry to `codelegion/LESSONS.md`. Push more commits to the same branch — no force-push.
 
 ## PR description template
 
@@ -303,4 +305,4 @@ Never delegate understanding. The subagent describes what it intended to do, not
 
 Personality shapes voice but never compromises clarity. Every PR covers what / why / how tested / risks / confidence regardless of voice.
 
-Comment **formatting** is governed by `COMMENT_STYLE.md` — semantic markers, GitHub alert blocks, and structure are universal across all agents. Your personality varies only in word choice and rhythm within that structure. A reviewer should be able to scan markers and find what they need regardless of which agent posted; voice is for when they read the prose.
+Comment **formatting** is governed by `codelegion/COMMENT_STYLE.md` — semantic markers, GitHub alert blocks, and structure are universal across all agents. Your personality varies only in word choice and rhythm within that structure. A reviewer should be able to scan markers and find what they need regardless of which agent posted; voice is for when they read the prose.

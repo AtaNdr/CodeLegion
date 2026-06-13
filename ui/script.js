@@ -747,11 +747,41 @@ function closeAllOverlays() {
   ['notificationsPanel', 'settingsDrawer', 'userPopover'].forEach(closeOverlay);
 }
 
+// =====================================================================
+// Theme toggle. Three states cycled by click: auto → light → dark → auto.
+// "auto" is the absence of data-theme on <html>, so the existing
+// prefers-color-scheme media query keeps applying. The user's pick is
+// stored in localStorage; "auto" stores nothing so a future visit
+// silently picks up a changed system preference.
+// =====================================================================
+const THEME_KEY = 'cl-theme';
+(function initTheme() {
+  let stored;
+  try { stored = localStorage.getItem(THEME_KEY); } catch { stored = null; }
+  if (stored === 'light' || stored === 'dark') {
+    document.documentElement.setAttribute('data-theme', stored);
+  }
+  // Otherwise leave the attribute absent → auto mode.
+})();
+function cycleTheme() {
+  const cur = document.documentElement.getAttribute('data-theme');
+  const next = !cur ? 'light' : cur === 'light' ? 'dark' : null;
+  if (next === null) {
+    document.documentElement.removeAttribute('data-theme');
+    try { localStorage.removeItem(THEME_KEY); } catch {}
+  } else {
+    document.documentElement.setAttribute('data-theme', next);
+    try { localStorage.setItem(THEME_KEY, next); } catch {}
+  }
+}
+
 // Wire up header buttons + dismiss handlers + ESC + click-outside.
 (function wireHeader() {
+  const themeBtn = document.getElementById('themeIconBtn');
   const notifBtn = document.getElementById('notifIconBtn');
   const setBtn   = document.getElementById('settingsIconBtn');
   const userBtn  = document.getElementById('userIconBtn');
+  if (themeBtn) themeBtn.addEventListener('click', cycleTheme);
   if (notifBtn) notifBtn.addEventListener('click', (e) => { e.stopPropagation(); toggleOverlay('notificationsPanel'); });
   if (setBtn)   setBtn.addEventListener('click',   (e) => { e.stopPropagation(); toggleOverlay('settingsDrawer'); });
   if (userBtn)  userBtn.addEventListener('click',  (e) => { e.stopPropagation(); toggleOverlay('userPopover'); });

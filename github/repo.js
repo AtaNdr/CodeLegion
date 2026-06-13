@@ -11,25 +11,45 @@ import { ghFetch } from './app.js';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const TEMPLATE_DIR = path.resolve(__dirname, '..', 'repo-template');
 
-// Lists mirror v1's install-into-repo.sh:35-59. Some files are contracts we
-// must keep current; some are project-accumulating and must not be clobbered.
+// CodeLegion-owned files live under a single `codelegion/` directory at
+// the target repo root, except for the two paths GitHub itself fixes:
+// `.github/ISSUE_TEMPLATE/` (issue templates) and `.github/labels.yml` /
+// `.github/CODEOWNERS` (repo metadata). CLAUDE.md stays at the root by
+// Claude Code's discovery convention.
 export const ALWAYS_OVERWRITE = [
   'CLAUDE.md',
-  'COMMENT_STYLE.md',
-  'DESIGN_DEFAULTS.md',
-  'DO_NOT_TOUCH.md',
+  'codelegion/COMMENT_STYLE.md',
+  'codelegion/DESIGN_DEFAULTS.md',
+  'codelegion/DO_NOT_TOUCH.md',
   '.github/ISSUE_TEMPLATE/agent-task.md',
   '.github/ISSUE_TEMPLATE/free-form-request.md',
   '.github/labels.yml',
 ];
 
 export const CREATE_IF_MISSING = [
+  'codelegion/CONTEXT.md',
+  'codelegion/ARCHITECTURE.md',
+  'codelegion/DESIGN.md',
+  'codelegion/KNOWN_ISSUES.md',
+  'codelegion/LESSONS.md',
+  '.github/CODEOWNERS',
+];
+
+// Old root-level locations from before the `codelegion/` re-layout. The
+// Clean-repo-files action removes these so a re-inject leaves a tidy
+// state instead of two parallel sets. Removed files are deleted unless
+// the user has customised them; the SHA check in deleteFile would catch
+// a divergence, but in practice these files are auto-managed and the
+// risk is low. New deploys never produce these paths.
+export const LEGACY_PATHS_TO_REMOVE = [
+  'COMMENT_STYLE.md',
+  'DESIGN_DEFAULTS.md',
+  'DO_NOT_TOUCH.md',
   'CONTEXT.md',
   'ARCHITECTURE.md',
   'DESIGN.md',
   'KNOWN_ISSUES.md',
   'LESSONS.md',
-  '.github/CODEOWNERS',
 ];
 
 const owner = () => process.env.GH_REPO_OWNER;
@@ -146,7 +166,10 @@ function contentMatches(current, filePath) {
 
 export async function cleanFiles({ dryRun = false } = {}) {
   const results = [];
-  for (const filePath of ALWAYS_OVERWRITE) {
+  // Current-layout paths first, then any legacy root-level paths that may
+  // still be around from before the `codelegion/` re-layout.
+  const allPaths = [...ALWAYS_OVERWRITE, ...LEGACY_PATHS_TO_REMOVE];
+  for (const filePath of allPaths) {
     let current;
     try { current = await getRepoFile(filePath); } catch (e) { current = null; }
     if (!current) { results.push({ path: filePath, action: 'absent' }); continue; }
@@ -261,46 +284,46 @@ function adminPermError() {
 // to self-create it. The agent then just claims and executes.
 
 export const ONBOARDING_LABEL = 'agent:onboarding';
-export const ONBOARDING_TITLE = 'Onboard CodeLegion: write CONTEXT.md, ARCHITECTURE.md, DESIGN.md';
+export const ONBOARDING_TITLE = 'Onboard CodeLegion: write codelegion/CONTEXT.md, ARCHITECTURE.md, DESIGN.md';
 
 const ONBOARDING_BODY = `## What this is
 
-The three agent context files (\`CONTEXT.md\`, \`ARCHITECTURE.md\`, \`DESIGN.md\`) are missing or still contain the \`<!-- explorer: empty -->\` placeholder. **No agent can do regular work until these are filled in — all regular work is halted until this issue is closed.**
+The three agent context files (\`codelegion/CONTEXT.md\`, \`codelegion/ARCHITECTURE.md\`, \`codelegion/DESIGN.md\`) are missing or still contain the \`<!-- explorer: empty -->\` placeholder. **No agent can do regular work until these are filled in — all regular work is halted until this issue is closed.**
 
 You are the agent responsible for this. Do not block or unclaim it. Do NOT apply CLAUDE.md's "do not start regular work" rule to yourself — that rule protects regular tasks; THIS task is the one that fixes the gate.
 
 ## Your task
 
-Read every source file in the repo — don't skim. Read \`package.json\` / \`go.mod\` / \`requirements.txt\` / equivalent, the directory tree, and any README. Then write these three files from scratch, replacing the \`<!-- explorer: empty -->\` marker in each with real, thorough content.
+Read every source file in the repo — don't skim. Read \`package.json\` / \`go.mod\` / \`requirements.txt\` / equivalent, the directory tree, and any README. Then write the three files in \`codelegion/\` from scratch, replacing the \`<!-- explorer: empty -->\` marker in each with real, thorough content.
 
-### CONTEXT.md — how to work in this repo
+### codelegion/CONTEXT.md — how to work in this repo
 - One-paragraph description of what the project does and who it's for
 - Stack: language(s), framework(s), database, test framework, package manager — with versions if visible
 - Copy-pasteable commands for install / run / test / lint / format / type-check — verified to work
 - Key directories — one line each
 - Conventions, gotchas, how to run locally end-to-end
 
-### ARCHITECTURE.md — the *why*, not just the *what*
+### codelegion/ARCHITECTURE.md — the *why*, not just the *what*
 - How the major pieces communicate (data flow, API boundaries, events)
 - Why the top-level split exists; external integrations
 - Anything that looks odd but is intentional. Mark uncertainty with "OPEN QUESTION: ..."
 
-### DESIGN.md — the UI contract
+### codelegion/DESIGN.md — the UI contract
 - If UI: frameworks, tokens (colours/spacing/type/breakpoints), patterns to preserve, inconsistencies to resolve, a proposed contract, open questions
 - If no UI: say so in one sentence and note any constraints
 
 ## Acceptance criteria
 
-- [ ] \`CONTEXT.md\` has no \`<!-- explorer: empty -->\` marker and contains real, project-specific content
-- [ ] \`ARCHITECTURE.md\` has no marker and explains the *why*
-- [ ] \`DESIGN.md\` has no marker and documents the UI contract or states there's no UI
+- [ ] \`codelegion/CONTEXT.md\` has no \`<!-- explorer: empty -->\` marker and contains real, project-specific content
+- [ ] \`codelegion/ARCHITECTURE.md\` has no marker and explains the *why*
+- [ ] \`codelegion/DESIGN.md\` has no marker and documents the UI contract or states there's no UI
 - [ ] A PR titled "Initial CodeLegion context" is open, labelled \`agent:do-not-pick\`
 
 ## Steps
 
 1. Create a branch and push it
 2. Read the entire codebase before writing anything
-3. Write all three files — real content, no placeholders
+3. Write all three files in \`codelegion/\` — real content, no placeholders
 4. Open the PR titled "Initial CodeLegion context"; add label \`agent:do-not-pick\`
 5. Comment on this issue with the PR link
 
@@ -358,7 +381,7 @@ async function closeDuplicateOnboarding(dupe, canonical) {
 }
 
 export async function repoNeedsOnboarding() {
-  for (const f of ['CONTEXT.md', 'ARCHITECTURE.md', 'DESIGN.md']) {
+  for (const f of ['codelegion/CONTEXT.md', 'codelegion/ARCHITECTURE.md', 'codelegion/DESIGN.md']) {
     let file;
     try { file = await getRepoFile(f); } catch { file = null; }
     if (!file) return true;

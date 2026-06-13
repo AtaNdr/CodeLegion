@@ -42,6 +42,12 @@ export function currentRepo() {
 }
 
 export const STYLES = `
+  /* Theme — light variables on :root, dark override via @media for auto-
+     follow. Explicit overrides via html[data-theme="…"] win against the
+     media query because they're more specific. With no data-theme attribute
+     set, the page tracks the OS preference (the "auto" behaviour). The
+     header sun/moon toggle writes data-theme to localStorage; clearing
+     storage reverts to auto. */
   :root { color-scheme: light dark;
     --fg:#222; --bg:#fff; --muted:#888; --border:#e0e0e0; --pill-bg:#f0f0f0;
     --err:#c33; --warn:#a60; --ok:#161; --info:#247;
@@ -52,6 +58,16 @@ export const STYLES = `
     --err:#f66; --warn:#fc6; --ok:#6c9; --info:#7af;
     --green:#4caf50; --yellow:#f0b400; --red:#ef5350; --grey:#999;
   } }
+  html[data-theme="light"] { color-scheme: light;
+    --fg:#222; --bg:#fff; --muted:#888; --border:#e0e0e0; --pill-bg:#f0f0f0;
+    --err:#c33; --warn:#a60; --ok:#161; --info:#247;
+    --green:#0a7d3a; --yellow:#a36500; --red:#b3261e; --grey:#888;
+  }
+  html[data-theme="dark"] { color-scheme: dark;
+    --fg:#eee; --bg:#1b1b1b; --muted:#999; --border:#333; --pill-bg:#2a2a2a;
+    --err:#f66; --warn:#fc6; --ok:#6c9; --info:#7af;
+    --green:#4caf50; --yellow:#f0b400; --red:#ef5350; --grey:#999;
+  }
   * { box-sizing: border-box; }
   body { font: 14px/1.5 -apple-system, system-ui, "Segoe UI", sans-serif; color: var(--fg); background: var(--bg); margin: 0; padding: 1.5rem; }
   main { max-width: 1100px; margin: 0 auto; }
@@ -175,6 +191,18 @@ export const STYLES = `
     box-sizing: content-box;
   }
   #notifIconBtn .icon-badge { background: var(--info); }
+
+  /* Theme-toggle icon — show exactly one of three (auto / light / dark)
+     based on the current data-theme attribute on <html>. With no
+     attribute set we show the "auto" half-disc icon so the user can see
+     they're tracking the system preference. */
+  #themeIconBtn .theme-sun,
+  #themeIconBtn .theme-moon,
+  #themeIconBtn .theme-auto { display: none; }
+  html:not([data-theme]) #themeIconBtn .theme-auto { display: block; }
+  html[data-theme="light"] #themeIconBtn .theme-sun { display: block; }
+  html[data-theme="dark"]  #themeIconBtn .theme-moon { display: block; }
+  #themeIconBtn:hover { transform: rotate(15deg); transition: transform .15s, background .15s, border-color .15s; }
 
   /* ─────────── Settings drawer ─────────── */
   .drawer {

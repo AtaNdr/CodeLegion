@@ -207,7 +207,7 @@ self_deallocate() {
 }
 
 # ---- Onboarding ------------------------------------------------
-# A fresh repo ships CONTEXT.md / ARCHITECTURE.md / DESIGN.md with the
+# A fresh repo ships codelegion/CONTEXT.md / ARCHITECTURE.md / DESIGN.md with the
 # placeholder marker "<!-- explorer: empty -->". CLAUDE.md tells regular
 # tasks to halt until those are filled. The first agent's job is to fill
 # them: it creates (or claims) an `agent:onboarding` issue, writes the
@@ -216,7 +216,7 @@ ONBOARDING_LABEL="agent:onboarding"
 
 repo_needs_onboarding() {
   local f
-  for f in CONTEXT.md ARCHITECTURE.md DESIGN.md; do
+  for f in codelegion/CONTEXT.md codelegion/ARCHITECTURE.md codelegion/DESIGN.md; do
     [[ ! -f "$f" ]] && return 0
     grep -q '<!-- explorer: empty -->' "$f" && return 0
   done
@@ -238,7 +238,7 @@ ensure_onboarding_issue() {
   body=$(cat <<'OBEOF'
 ## What this is
 
-The three agent context files (`CONTEXT.md`, `ARCHITECTURE.md`, `DESIGN.md`) are missing or still contain the `<!-- explorer: empty -->` placeholder. **No agent can do regular work until these are filled in — all regular work is halted until this issue is closed.**
+The three agent context files (`codelegion/CONTEXT.md`, `codelegion/ARCHITECTURE.md`, `codelegion/DESIGN.md`) are missing or still contain the `<!-- explorer: empty -->` placeholder. **No agent can do regular work until these are filled in — all regular work is halted until this issue is closed.**
 
 You are the agent responsible for this. Do not block or unclaim it. Do NOT apply CLAUDE.md's "do not start regular work" rule to yourself — that rule exists to protect regular tasks; THIS task is the one that fixes the gate.
 
@@ -246,7 +246,7 @@ You are the agent responsible for this. Do not block or unclaim it. Do NOT apply
 
 Read every source file in the repo — don't skim. Read `package.json` / `go.mod` / `requirements.txt` / equivalent, the directory tree, and any README. Then write these three files from scratch, replacing the `<!-- explorer: empty -->` marker in each with real, thorough content.
 
-### CONTEXT.md — how to work in this repo
+### codelegion/CONTEXT.md — how to work in this repo
 - One-paragraph description of what the project does and who it's for
 - Stack: language(s), framework(s), database, test framework, package manager — with versions if visible
 - Copy-pasteable commands for: install, run locally, run tests, lint, format, type-check — verified to actually work
@@ -255,7 +255,7 @@ Read every source file in the repo — don't skim. Read `package.json` / `go.mod
 - Gotchas: anything that would surprise a new contributor
 - How to run the project locally end-to-end
 
-### ARCHITECTURE.md — the *why*, not just the *what*
+### codelegion/ARCHITECTURE.md — the *why*, not just the *what*
 - How the major pieces communicate (data flow, API boundaries, event paths)
 - Why the top-level split exists (not just what the folders are, but why they're separate)
 - External integrations and what they're used for
@@ -263,7 +263,7 @@ Read every source file in the repo — don't skim. Read `package.json` / `go.mod
 - Anywhere the architecture is under stress or in transition
 - Mark uncertainty with "OPEN QUESTION: ..."
 
-### DESIGN.md — the UI contract
+### codelegion/DESIGN.md — the UI contract
 If the project has UI:
 - Frameworks/libraries (component library, CSS approach, animation)
 - Design tokens in use: colours, spacing scale, typography, breakpoints — actual values
@@ -276,9 +276,9 @@ If no UI exists: say so in one sentence and note any constraints affecting futur
 
 ## Acceptance criteria
 
-- [ ] `CONTEXT.md` has no `<!-- explorer: empty -->` marker and contains real, project-specific content
-- [ ] `ARCHITECTURE.md` has no marker and explains the *why*
-- [ ] `DESIGN.md` has no marker and either documents the UI contract or clearly states there's no UI
+- [ ] `codelegion/CONTEXT.md` has no `<!-- explorer: empty -->` marker and contains real, project-specific content
+- [ ] `codelegion/ARCHITECTURE.md` has no marker and explains the *why*
+- [ ] `codelegion/DESIGN.md` has no marker and either documents the UI contract or clearly states there's no UI
 - [ ] A PR titled "Initial CodeLegion context" is open, labelled `agent:do-not-pick`
 - [ ] This issue is referenced from the PR and closes when the PR merges
 
@@ -286,7 +286,7 @@ If no UI exists: say so in one sentence and note any constraints affecting futur
 
 1. Create a branch and push it
 2. Read the entire codebase before writing anything
-3. Write all three files — real content, no placeholders, no filler
+3. Write all three files in `codelegion/` — real content, no placeholders, no filler
 4. Open the PR titled "Initial CodeLegion context"; body summarises findings and lists open questions
 5. Add label `agent:do-not-pick` to the PR
 6. Comment on this issue with the PR link
@@ -297,7 +297,7 @@ OBEOF
 
   # The controller normally creates this at inject time; this is a fallback.
   gh issue create \
-    --title "Onboard CodeLegion: write CONTEXT.md, ARCHITECTURE.md, DESIGN.md" \
+    --title "Onboard CodeLegion: write codelegion/CONTEXT.md, ARCHITECTURE.md, DESIGN.md" \
     --label "agent-ready" --label "$ONBOARDING_LABEL" \
     --body "$body" >/dev/null 2>&1 || log "onboarding create returned nonzero (may already exist)" >&2
 
@@ -511,9 +511,9 @@ You claimed issue #$ISSUE_NUM — the fleet ONBOARDING task. Your job is to stud
 
 Study the repo directly: read source files, package.json / go.mod / requirements.txt, the directory tree, and any README. Then write:
 
-- CONTEXT.md — what the project does and who it's for; stack (languages, frameworks, db, test framework, package manager); copy-pasteable install/run/test/lint/format/type-check commands; key directories; conventions; gotchas.
-- ARCHITECTURE.md — how the major pieces communicate (data flow, API boundaries, events); why the top-level split exists; external integrations; anything that looks odd but is intentional. Mark uncertainty with 'OPEN QUESTION: ...'.
-- DESIGN.md — if there's UI: frameworks, tokens (colors/spacing/type/breakpoints), patterns to preserve, inconsistencies to resolve, a proposed contract. If no UI: say so in one sentence and note any constraints.
+- codelegion/CONTEXT.md — what the project does and who it's for; stack (languages, frameworks, db, test framework, package manager); copy-pasteable install/run/test/lint/format/type-check commands; key directories; conventions; gotchas.
+- codelegion/ARCHITECTURE.md — how the major pieces communicate (data flow, API boundaries, events); why the top-level split exists; external integrations; anything that looks odd but is intentional. Mark uncertainty with 'OPEN QUESTION: ...'.
+- codelegion/DESIGN.md — if there's UI: frameworks, tokens (colors/spacing/type/breakpoints), patterns to preserve, inconsistencies to resolve, a proposed contract. If no UI: say so in one sentence and note any constraints.
 
 Every file must have its '<!-- explorer: empty -->' marker replaced with real, thorough content — no placeholders.
 
@@ -526,7 +526,7 @@ Steps:
   else
     TASK_PROMPT="You are $NAME $EMOJI on $MODEL. Identity in ~/.agent-identity.json. Claimed issue #$ISSUE_NUM ($ISSUE_TITLE). Branch will be $BRANCH.
 
-Read CLAUDE.md (especially the Workflow section), COMMENT_STYLE.md, CONTEXT.md, ARCHITECTURE.md.
+Read CLAUDE.md (especially the Workflow section), codelegion/COMMENT_STYLE.md, codelegion/CONTEXT.md, codelegion/ARCHITECTURE.md.
 
 The STANDARD TEMPLATE for an issue is: What (one sentence) / Acceptance criteria (testable checklist) / Likely files affected / Out of scope. Assess this issue against it.
 
