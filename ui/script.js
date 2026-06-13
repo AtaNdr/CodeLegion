@@ -698,6 +698,145 @@ async function refreshFleetSection() {
 }
 setInterval(refreshFleetSection, 30000);
 
+// =====================================================================
+// Header icons — Notifications popover, Settings drawer, User popover.
+// Only one overlay open at a time. Click outside / ESC closes everything.
+// =====================================================================
+const DISMISSED_NOTES_KEY = 'cl-dismissed-notes';
+function getDismissedNotes() {
+  try { return new Set(JSON.parse(localStorage.getItem(DISMISSED_NOTES_KEY) || '[]')); }
+  catch { return new Set(); }
+}
+function setDismissedNotes(set) {
+  try { localStorage.setItem(DISMISSED_NOTES_KEY, JSON.stringify([...set])); } catch {}
+}
+
+function openOverlay(id) {
+  closeAllOverlays();
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.hidden = false;
+  // Force reflow so the transition runs.
+  void el.offsetHeight;
+  el.classList.add('open');
+  if (id === 'settingsDrawer') {
+    const bd = document.getElementById('drawerBackdrop');
+    if (bd) { bd.hidden = false; void bd.offsetHeight; bd.classList.add('open'); }
+  }
+  // Highlight the source button.
+  const btn = id === 'settingsDrawer' ? document.getElementById('settingsIconBtn')
+    : id === 'notificationsPanel' ? document.getElementById('notifIconBtn')
+    : id === 'userPopover' ? document.getElementById('userIconBtn') : null;
+  if (btn) btn.setAttribute('aria-expanded', 'true');
+}
+function closeOverlay(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.classList.remove('open');
+  setTimeout(() => { el.hidden = true; }, 250);
+  if (id === 'settingsDrawer') {
+    const bd = document.getElementById('drawerBackdrop');
+    if (bd) { bd.classList.remove('open'); setTimeout(() => { bd.hidden = true; }, 250); }
+  }
+  const btn = id === 'settingsDrawer' ? document.getElementById('settingsIconBtn')
+    : id === 'notificationsPanel' ? document.getElementById('notifIconBtn')
+    : id === 'userPopover' ? document.getElementById('userIconBtn') : null;
+  if (btn) btn.setAttribute('aria-expanded', 'false');
+}
+function closeAllOverlays() {
+  ['notificationsPanel', 'settingsDrawer', 'userPopover'].forEach(closeOverlay);
+}
+
+// Wire up header buttons + dismiss handlers + ESC + click-outside.
+(function wireHeader() {
+  const notifBtn = document.getElementById('notifIconBtn');
+  const setBtn   = document.getElementById('settingsIconBtn');
+  const userBtn  = document.getElementById('userIconBtn');
+  if (notifBtn) notifBtn.addEventListener('click', (e) => { e.stopPropagation(); toggleOverlay('notificationsPanel'); });
+  if (setBtn)   setBtn.addEventListener('click',   (e) => { e.stopPropagation(); toggleOverlay('settingsDrawer'); });
+  if (userBtn)  userBtn.addEventListener('click',  (e) => { e.stopPropagation(); toggleOverlay('userPopover'); });
+
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeAllOverlays(); });
+
+  // Click-outside closes popovers (drawer has its own backdrop already).
+  document.addEventListener('click', (e) => {
+    const np = document.getElementById('notificationsPanel');
+    const up = document.getElementById('userPopover');
+    if (np && !np.hidden && !np.contains(e.target) && !notifBtn?.contains(e.target)) closeOverlay('notificationsPanel');
+    if (up && !up.hidden && !up.contains(e.target) && !userBtn?.contains(e.target)) closeOverlay('userPopover');
+  });
+
+  // Wire each notification's dismiss + action button.
+  const list = document.getElementById('notificationsList');
+  if (list) {
+    list.addEventListener('click', (e) => {
+      const dismissBtn = e.target.closest('[data-dismiss]');
+      if (dismissBtn) {
+        const id = dismissBtn.getAttribute('data-dismiss');
+        const set = getDismissedNotes(); set.add(id); setDismissedNotes(set);
+        const item = dismissBtn.closest('.note');
+        if (item) item.remove();
+        const remaining = list.querySelectorAll('.note').length;
+        if (remaining === 0) {
+          list.innerHTML = '<li class="np-empty">All clear.</li>';
+        }
+        // Update badge.
+        updateNotifBadge();
+        return;
+      }
+      const actionBtn = e.target.closest('.note-action');
+      if (actionBtn) {
+        const handler = actionBtn.getAttribute('data-handler');
+        const target = actionBtn.getAttribute('data-target');
+        closeOverlay('notificationsPanel');
+        if (handler && typeof window[handler] === 'function') window[handler]();
+        else if (target) openOverlay(target);
+      }
+    });
+  }
+
+  // Hide already-dismissed notifications on page load.
+  const dismissed = getDismissedNotes();
+  document.querySelectorAll('.note[data-note-id]').forEach((n) => {
+    if (dismissed.has(n.getAttribute('data-note-id'))) n.remove();
+  });
+  if (list && list.querySelectorAll('.note').length === 0) {
+    list.innerHTML = '<li class="np-empty">All clear.</li>';
+  }
+  updateNotifBadge();
+})();
+
+function toggleOverlay(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  if (el.classList.contains('open')) closeOverlay(id);
+  else openOverlay(id);
+}
+
+function updateNotifBadge() {
+  const btn = document.getElementById('notifIconBtn');
+  if (!btn) return;
+  const list = document.getElementById('notificationsList');
+  const count = list ? list.querySelectorAll('.note').length : 0;
+  let badge = btn.querySelector('.icon-badge');
+  if (count > 0) {
+    if (!badge) {
+      badge = document.createElement('span');
+      badge.className = 'icon-badge';
+      btn.appendChild(badge);
+    }
+    badge.textContent = String(count);
+  } else if (badge) {
+    badge.remove();
+  }
+}
+
+function clearDismissedNotifications() {
+  try { localStorage.removeItem(DISMISSED_NOTES_KEY); } catch {}
+  // Quickest way to re-render: reload. The full set is computed server-side.
+  location.reload();
+}
+
 // Lazy-fetch version + update-available pill, populate the footer line.
 // Pill sits IN FRONT of the version so a fresh release catches the eye
 // before the v-number; pulses for 5s on first appearance, then settles.
@@ -727,6 +866,49 @@ setInterval(refreshFleetSection, 30000);
     el.innerHTML = html;
     // Strip the pulse class after ~5s so it doesn't loop forever.
     setTimeout(() => el.querySelectorAll('.update-pulse').forEach(n => n.classList.remove('update-pulse')), 5000);
+
+    // Add an 'update-available' notification into the header bell, if any.
+    if (v.update?.hasUpdate && v.update.latestVersion) {
+      addClientNotification({
+        id: 'update-available-' + v.update.latestVersion,
+        tier: 'info',
+        title: 'Update available — ' + v.update.latestVersion,
+        body: 'Current ' + (v.version || '?') + '. Click to deploy.',
+        actionHandler: 'doSelfUpdate',
+        actionLabel: 'Update now',
+      });
+    }
   } catch {}
 })();
+
+// Client-side notification injection. Used for signals that aren't known
+// at server-render time (update-available, anything fetched after load).
+function addClientNotification({ id, tier, title, body, actionHandler, actionLabel }) {
+  const list = document.getElementById('notificationsList');
+  if (!list) return;
+  const dismissed = getDismissedNotes();
+  if (dismissed.has(id)) return;
+  // De-dupe by id.
+  if (list.querySelector('[data-note-id="' + CSS.escape(id) + '"]')) return;
+  // Remove the "All clear" placeholder if present.
+  const empty = list.querySelector('.np-empty');
+  if (empty) empty.remove();
+
+  const escape = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const actionHtml = actionHandler
+    ? '<button type="button" class="note-action" data-handler="' + escape(actionHandler) + '">' + escape(actionLabel || 'Action') + '</button>'
+    : '';
+  const li = document.createElement('li');
+  li.className = 'note note-tier-' + tier;
+  li.setAttribute('data-note-id', id);
+  li.innerHTML =
+    '<div class="note-body">' +
+      '<div class="note-title">' + escape(title) + '</div>' +
+      '<div class="note-text">' + escape(body) + '</div>' +
+      actionHtml +
+    '</div>' +
+    '<button type="button" class="note-dismiss" aria-label="Dismiss" data-dismiss="' + escape(id) + '">×</button>';
+  list.insertBefore(li, list.firstChild);
+  updateNotifBadge();
+}
 `;

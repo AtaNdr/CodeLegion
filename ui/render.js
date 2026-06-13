@@ -4,32 +4,42 @@ import { config } from '../config.js';
 import { escapeHtml, STYLES } from './common.js';
 import { renderSetup } from './sections/setup.js';
 import { renderDiscovery } from './sections/discovery.js';
+import { computeNotifications, renderNotificationsPanel } from './sections/notifications.js';
 import { INLINE_SCRIPT } from './script.js';
 
-export function renderPage({ phase1, discovery, missing, topError, fleet, cost, version, adminToken }) {
-  // Once Flow 1 is fully green, fold the setup section into Environment &
-  // discovery so the dashboard's primary content is the fleet, not a
-  // permanent green checklist that no longer needs attention. If anything
-  // regresses (a check goes yellow/red), it pops back to the top.
-  // When inline (folded into Environment), the setup <details> defaults
-  // closed and doesn't persist, so clicking Environment doesn't auto-expand
-  // setup. When at top (allDone=false), persist + default-open as before.
+export function renderPage({ phase1, discovery, missing, topError, fleet, fleetData, cost, version, adminToken }) {
+  // Header-icon model:
+  //   - The main page is fleet + cost only.
+  //   - Setup + Environment & discovery live behind the ⚙ gear icon's
+  //     right-side Settings drawer.
+  //   - Setup bubbles up to the main page only when not yet allDone — a
+  //     fresh deploy shouldn't make an operator hunt for the wizard.
+  //   - The gear icon shows a red badge in that case.
   const setupAtTop = phase1 && !phase1.summary?.allDone ? renderSetup(phase1) : '';
-  const setupInDiscovery = phase1 && phase1.summary?.allDone ? renderSetup(phase1, { inline: true }) : '';
-  const discoverySection = discovery ? renderDiscovery({ discovery, missing, topError, setupInline: setupInDiscovery }) : '';
+  const setupForDrawer = phase1 ? renderSetup(phase1, { inline: true }) : '';
+  const discoveryForDrawer = discovery ? renderDiscovery({ discovery, missing, topError, setupInline: '' }) : '';
+
+  const setupNeedsAttention = phase1?.summary && !phase1.summary.allDone;
+  const settingsBadge = setupNeedsAttention
+    ? `<span class="icon-badge" title="Setup incomplete">${phase1.summary.red || 0}</span>`
+    : '';
+
+  // Notifications — computed server-side from data the page already has.
+  // The client adds 'update-available' dynamically after /api/version.
+  const notifications = computeNotifications({ phase1, fleet: fleetData });
+  const notificationsPanel = renderNotificationsPanel(notifications);
+  const notifBadge = notifications.length > 0
+    ? `<span class="icon-badge">${notifications.length}</span>`
+    : '';
+
   const fleetSection = fleet || '';
   const costSection = cost || '';
-  // Admin endpoints (/admin/*) require an X-Admin-Token header that matches
-  // REPORT_TOKEN. We render it into the page so the dashboard JS can attach
-  // it to admin requests. Same trust boundary as the webhook secret already
-  // shown in the Configure App modal — anyone who can load /status can see
-  // both. Enable App Service Easy Auth to gate /status access if needed.
+
+  // Admin token is rendered into the page so the inline JS can attach it
+  // to /admin/* requests. Enable App Service Easy Auth to gate /status.
   const tokenMeta = adminToken
     ? `<meta name="codelegion-admin-token" content="${escapeHtml(adminToken)}">`
     : '';
-  // Expose the target repo so client-side renderers (Reconcile history
-  // modal, per-VM timeline, etc.) can build links to GitHub issues without
-  // needing a round-trip to the controller.
   const o = process.env.GH_REPO_OWNER, r = process.env.GH_REPO_NAME;
   const repoMeta = o && r
     ? `<meta name="codelegion-repo" content="${escapeHtml(o + '/' + r)}">`
@@ -42,16 +52,43 @@ export function renderPage({ phase1, discovery, missing, topError, fleet, cost, 
   <meta name="viewport" content="width=device-width, initial-scale=1">
   ${tokenMeta}
   ${repoMeta}
-  <!-- Auto-refresh handled in JS so we can skip while a modal is open. -->
-
   <style>${STYLES}</style>
 </head><body>
+
+<header class="app-header">
+  <div class="app-header-inner">
+    <div class="brand-block">
+      <span class="brand-mark" aria-hidden="true">CL</span>
+      <span class="brand-name">CodeLegion</span>
+      <span class="brand-version">v${escapeHtml(version || config.version)}</span>
+    </div>
+    <div class="header-icons">
+      <button type="button" class="icon-btn" id="notifIconBtn" aria-label="Notifications" aria-haspopup="true">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+          <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+        </svg>
+        ${notifBadge}
+      </button>
+      <button type="button" class="icon-btn" id="settingsIconBtn" aria-label="Settings" aria-haspopup="true">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
+        ${settingsBadge}
+      </button>
+      <button type="button" class="icon-btn icon-btn-avatar" id="userIconBtn" aria-label="Account" aria-haspopup="true">
+        <span class="avatar-initials">A</span>
+      </button>
+    </div>
+  </div>
+</header>
+
 <main>
-  <h1>CodeLegion</h1>
   ${setupAtTop}
   <div id="fleet-container">${fleetSection}</div>
   ${costSection}
-  ${discoverySection}
+
   <footer>
     <div id="version-line" style="margin-bottom:.25rem">v${escapeHtml(version || config.version)}</div>
     <a href="/api/version">/api/version</a> ·
@@ -62,6 +99,39 @@ export function renderPage({ phase1, discovery, missing, topError, fleet, cost, 
     <a href="/api/discovery">/api/discovery</a> ·
     <a href="/health">/health</a>
   </footer>
+</main>
+
+<!-- ── Notifications popover ── -->
+${notificationsPanel}
+
+<!-- ── User account popover (placeholder until dashboard auth ships) ── -->
+<div class="user-popover" id="userPopover" hidden>
+  <div class="np-header">
+    <strong>Account</strong>
+    <button type="button" class="np-close" aria-label="Close" onclick="closeOverlay('userPopover')">×</button>
+  </div>
+  <div class="up-body">
+    <div class="up-avatar"><span class="avatar-initials">A</span></div>
+    <div class="up-status">Not signed in</div>
+    <p class="up-note">Dashboard authentication is not implemented yet. Until it ships, gate <code>/status</code> with Azure App Service Easy Auth.</p>
+    <a href="https://github.com/AtaNdr/CodeLegion/blob/main/auth/IMPLEMENTATION-PLAN.md" target="_blank" rel="noopener" class="link-btn">View implementation plan ↗</a>
+  </div>
+</div>
+
+<!-- ── Settings drawer (Infrastructure setup + Environment & discovery) ── -->
+<aside class="drawer" id="settingsDrawer" hidden aria-labelledby="settingsDrawerTitle">
+  <div class="drawer-header">
+    <h2 id="settingsDrawerTitle">Settings</h2>
+    <button type="button" class="drawer-close" aria-label="Close" onclick="closeOverlay('settingsDrawer')">×</button>
+  </div>
+  <div class="drawer-body">
+    <section class="drawer-section">${setupForDrawer || '<p class="muted">Setup wizard not yet available — controller config incomplete.</p>'}</section>
+    <section class="drawer-section">${discoveryForDrawer || '<p class="muted">Environment data unavailable.</p>'}</section>
+  </div>
+</aside>
+<div class="drawer-backdrop" id="drawerBackdrop" hidden onclick="closeAllOverlays()"></div>
+
+<!-- ── Existing modals (unchanged) ── -->
 
   <dialog id="timeline-modal">
     <div class="spread"><h3 id="timeline-title" style="margin:0">Timeline</h3>
@@ -177,7 +247,7 @@ export function renderPage({ phase1, discovery, missing, topError, fleet, cost, 
       </div>
     </form>
   </dialog>
-</main>
+
 <script>${INLINE_SCRIPT}</script>
 </body></html>`;
 }

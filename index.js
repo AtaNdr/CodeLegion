@@ -76,10 +76,11 @@ app.get(['/', '/status'], async (_req, res) => {
 
   let fleetHtml = '';
   let costHtml = '';
+  let fleetData = null;
   if (summary.allDone) {
     try {
-      const fleet = await fleetSnapshot();
-      fleetHtml = renderFleet(fleet);
+      fleetData = await fleetSnapshot();
+      fleetHtml = renderFleet(fleetData);
       const recent = readRecent(20);
       const totals = todayMonthTotals();
       costHtml = renderCost({ recent, totals });
@@ -94,6 +95,7 @@ app.get(['/', '/status'], async (_req, res) => {
     missing,
     topError,
     fleet: fleetHtml,
+    fleetData,
     cost: costHtml,
     version: config.version,
     adminToken: process.env.REPORT_TOKEN || null,
