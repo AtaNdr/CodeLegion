@@ -1,9 +1,15 @@
-# Dashboard Authentication — Implementation Plan
+# Dashboard authentication — design notes
 
-> **Status: TODO.** Deferred to a future iteration. The single-password
-> implementation is preserved on branch `feat/dashboard-auth` for reference.
-> Until this lands, `/status` is open; gate it with Azure App Service Easy
-> Auth before exposing your deployment publicly.
+> **Status: planned, not built.** This document captures the intended design
+> so that future contributors do not have to start from a blank page. The
+> work is tracked alongside other open items in [`../TODO.md`](../TODO.md).
+> A single-password prototype is preserved on the `feat/dashboard-auth`
+> branch as a reference starting point.
+>
+> Until this ships, the `/status` dashboard has no built-in authentication.
+> Operators should gate it with **Azure App Service Authentication
+> (Easy Auth)** or an equivalent external auth layer before exposing the
+> deployment to the public internet. See [`../SECURITY.md`](../SECURITY.md).
 
 ## Goal
 

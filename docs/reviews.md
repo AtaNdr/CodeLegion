@@ -1,6 +1,6 @@
 # AI reviews
 
-First-look evaluations of CodeLegion from third-party AI models, collected with the prompt in [`ai-review-prompt.md`](./ai-review-prompt.md). Embedded into the landing page (`index.html`) as the **Reviews** section.
+First-look evaluations of CodeLegion from third-party AI models, collected with the prompt in [`ai-review-prompt.md`](./ai-review-prompt.md). Embedded into the public landing page at <https://codelegion.atanaderi.dev> as the **Reviews** section.
 
 These are AI-generated, clearly labelled, and meant as a stop-gap until real-user testimonials arrive via GitHub Discussions / Twitter / blog posts. Each new response goes through the prompt template unedited; the **Pull-quote** field is what appears on the landing page.
 

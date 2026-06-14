@@ -1,5 +1,8 @@
 # Security
 
+> [!WARNING]
+> **The `/status` dashboard has no built-in authentication.** It renders sensitive data including the webhook secret and admin token. Anyone with the URL can read and operate the fleet. Before exposing your deployment to the public internet, gate it with **Azure App Service Authentication (Easy Auth)** or an equivalent external auth layer. A built-in login is on the roadmap and tracked in [`TODO.md`](./TODO.md); until then, treat any deployment without external auth as private and assume the URL is reachable by anyone who guesses it.
+
 ## Reporting a vulnerability
 
 Please **do not open a public issue** for security reports. Email the maintainer:
@@ -7,12 +10,13 @@ Please **do not open a public issue** for security reports. Email the maintainer
 - **naderi.ata@gmail.com**
 
 Include:
+
 - A description of the issue and its impact.
 - Steps to reproduce.
 - Any proof-of-concept code or screenshots.
 - The version of CodeLegion you tested (footer pill on `/status`, or `/api/version`).
 
-Expect an acknowledgement within 72 hours and a remediation plan within 14 days for valid reports. Coordinated disclosure preferred.
+Expect an acknowledgement within 72 hours and a remediation plan within 14 days for valid reports. Coordinated disclosure is preferred.
 
 ## Trust model
 
@@ -25,15 +29,15 @@ CodeLegion runs as a single-instance Azure Web App that:
 
 ## Dashboard authentication
 
-The `/status` dashboard has **no built-in authentication yet**. Before exposing your deployment publicly, enable **Azure App Service Easy Auth** with your preferred identity provider (Microsoft / GitHub / Google / custom OIDC) — Azure portal → your Web App → Authentication → Add identity provider. Easy Auth fronts every request before the controller sees it, so unauthenticated users never reach the dashboard.
+Until the built-in login lands, gate `/status` with **Azure App Service Authentication (Easy Auth)** — Azure portal → your Web App → Authentication → Add identity provider — using Microsoft, GitHub, Google, or a custom OIDC provider. Easy Auth fronts every request before the controller sees it, so unauthenticated users never reach the dashboard.
 
-A built-in password-based login is on the roadmap and tracked on a feature branch; until then, treat any deployment without Easy Auth as private.
+Design notes for the built-in implementation live in [`auth/IMPLEMENTATION-PLAN.md`](./auth/IMPLEMENTATION-PLAN.md). The work is tracked in [`TODO.md`](./TODO.md) for future contributors to pick up.
 
 ## Known footguns
 
-- `--dangerously-skip-permissions` is required for the agent's Claude Code invocation to act unattended. The guard rails are documented in `repo-template/CLAUDE.md` and `repo-template/DO_NOT_TOUCH.md`. Do not deploy CodeLegion against a repo you wouldn't trust a fast, unmonitored junior developer with.
+- `--dangerously-skip-permissions` is required for the agent's Claude Code invocation to act unattended. The guard rails are documented in `repo-template/CLAUDE.md` and `repo-template/codelegion/DO_NOT_TOUCH.md`. Do not deploy CodeLegion against a repository you would not trust a fast, unmonitored junior developer with.
 - Cloud-init carries `REPORT_TOKEN` to each VM. Rotating it requires a fleet recycle.
-- Branch protection on private repos requires GitHub Pro or higher; on free private repos CodeLegion will skip the branch-protection check and surface a yellow status.
+- Branch protection on private repositories requires GitHub Pro or higher; on free private repositories CodeLegion will skip the branch-protection check and surface a yellow status.
 
 ## Supported versions
 

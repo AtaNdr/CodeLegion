@@ -13,7 +13,7 @@ The point isn't to fish for praise — it's to get a fast, specific outside read
 3. Below it, paste the contents of `README.md`, `SETUP.md`, and `PLAN.md` (each separated by a `---`).
 4. Copy the model's response.
 5. Drop it into `docs/reviews.md` under a new model heading (see the template at the bottom of this file).
-6. Send the updated `reviews.md` back to me and I'll embed the responses into `docs/index.html`.
+6. Send the updated `reviews.md` back to me and I'll embed the responses into the public landing page at <https://codelegion.atanaderi.dev>.
 
 ---
 
