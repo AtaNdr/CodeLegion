@@ -5,6 +5,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { listAgents, isAlive, isWakeable, groupByModel, startExistingAgent, spinNewAgent } from '../azure/vm.js';
+import { recordHint } from './reconcile.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 let _cfg = null;
@@ -94,11 +95,16 @@ export async function handleWebhook({ event, payload }) {
     const sameRepo = sleeping.find(a => a.repo === repoUrl);
     const candidate = sameRepo || sleeping[0];
 
+    const onboarding = labels.includes('agent:onboarding');
     if (candidate) {
       await startExistingAgent(candidate.vmName);
+      // Record a hint so the next reconcile pass treats issue N as covered by
+      // this waking VM and doesn't spin/wake a second one for the same issue.
+      recordHint(candidate.vmName, { issue: issueNumber, model, onboarding });
       return { action: 'waking', vmName: candidate.vmName, sameRepo: !!sameRepo };
     }
     const vmName = await spinNewAgent({ repoUrl, model });
+    recordHint(vmName, { issue: issueNumber, model, onboarding });
     return { action: 'spawning', vmName };
   }
 

@@ -39,7 +39,12 @@ const BUSY_STATES = new Set(['claimed', 'planning', 'coding']);
 // gone, or genuinely broken). Without this, we'd race-assign to a VM that's
 // in self_deallocate's 5-min wait and will never poll again.
 const UNAVAILABLE_STATES = new Set(['deallocating', 'failed', 'auth-error', 'config-error']);
-const HINT_TTL_MS = 90_000;
+// Hint TTL must comfortably exceed cold-boot + first-claim time (cloud-init +
+// repo clone + first agent-loop.sh iteration before `gh issue edit` lands).
+// 90s was too tight and let the same issue be re-handed to a second VM during
+// slow boots. 4 minutes gives a real boot enough headroom; a genuinely-stuck
+// VM still recovers, just on the 4-minute mark instead of 90s.
+const HINT_TTL_MS = 240_000;
 
 // vmName → { issue, model, onboarding, at }
 const hints = new Map();
@@ -143,6 +148,14 @@ export async function listUnclaimedIssues() {
 }
 
 export function clearHint(vmName) { hints.delete(vmName); }
+
+// Webhook calls this when it wakes/spins a VM for a specific issue so that
+// the next reconcile tick doesn't see the issue as unassigned and spin a
+// second VM. The hint also keeps the issue out of `listUnclaimedIssues`'s
+// effective assignment pool via the `assignedIssues` check in reconcile.
+export function recordHint(vmName, { issue, model, onboarding = false }) {
+  hints.set(vmName, { issue, model, onboarding, at: Date.now() });
+}
 
 export function getAssignment(vmName) {
   const h = hints.get(vmName);

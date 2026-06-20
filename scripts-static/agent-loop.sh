@@ -444,6 +444,38 @@ while true; do
     sleep "$POLL_INTERVAL"; continue
   fi
 
+  # Pre-claim safety check — before applying any label, read the issue's
+  # existing state. If another agent already left a "picked this up" /
+  # "claimed" comment, or there's an open PR from another agent's branch
+  # against this issue, yield. This is belt-and-suspenders on top of the
+  # controller's hint-based assignment and the post-claim label race
+  # resolution below — it catches the narrow window where the controller's
+  # reservation expired while a slow-booting agent was still coming up.
+  PRIOR=$(gh issue view "$ISSUE_NUM" --json comments \
+    -q ".comments[] | select(.body | test(\"\\\\*\\\\*[^*]+\\\\*\\\\* \\\\([a-z]+\\\\) (picked this up|claimed)\"; \"i\")) | .body" \
+    2>/dev/null | grep -v -- "\\*\\*$NAME\\*\\*" | head -1 || true)
+  if [[ -n "$PRIOR" ]]; then
+    OTHER_AGENT=$(echo "$PRIOR" | grep -oP '\*\*[^*]+\*\*' | head -1 | tr -d '*')
+    log "Pre-claim check: #$ISSUE_NUM already taken by ${OTHER_AGENT:-another agent}, yielding."
+    remote_log "info" "yield #$ISSUE_NUM — prior claim by ${OTHER_AGENT:-other agent}"
+    gh issue comment "$ISSUE_NUM" --body "$EMOJI **$NAME** ($MODEL) — backing off. $OTHER_AGENT already picked this up; not duplicating the work. $SIGNOFF" 2>/dev/null || true
+    sleep 30; continue
+  fi
+  OPEN_PR=$(gh pr list --state open --search "issue-$ISSUE_NUM in:head" \
+    --json number,headRefName,author -q '.[0]' 2>/dev/null || echo "")
+  if [[ -n "$OPEN_PR" && "$OPEN_PR" != "null" ]]; then
+    PR_BRANCH=$(echo "$OPEN_PR" | jq -r .headRefName 2>/dev/null || echo "")
+    PR_NUM=$(echo "$OPEN_PR" | jq -r .number 2>/dev/null || echo "")
+    # An open PR from this agent's own branch prefix means a prior run by
+    # this same agent — proceed (the loop is recovering its own work).
+    if [[ -n "$PR_BRANCH" && "$PR_BRANCH" != ${NAME_LOWER}/* ]]; then
+      log "Pre-claim check: #$ISSUE_NUM has open PR #$PR_NUM on branch $PR_BRANCH, yielding."
+      remote_log "info" "yield #$ISSUE_NUM — open PR #$PR_NUM from $PR_BRANCH"
+      gh issue comment "$ISSUE_NUM" --body "$EMOJI **$NAME** ($MODEL) — backing off. PR #$PR_NUM ($PR_BRANCH) is already open against this issue, awaiting review. $SIGNOFF" 2>/dev/null || true
+      sleep 30; continue
+    fi
+  fi
+
   log "Attempting to claim #$ISSUE_NUM (onboarding=$IS_ONBOARDING_TASK)"
   remote_log "info" "claim attempt #$ISSUE_NUM onboarding=$IS_ONBOARDING_TASK"
   # syncLabels() seeds only the static label set — `agent:<name>` claim
