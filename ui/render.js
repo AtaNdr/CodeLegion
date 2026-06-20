@@ -108,14 +108,7 @@ export function renderPage({ phase1, discovery, missing, topError, fleet, fleetD
   ${costSection}
 
   <footer>
-    <div id="version-line" style="margin-bottom:.25rem">v${escapeHtml(version || config.version)}</div>
-    <a href="/api/version">/api/version</a> ·
-    <a href="/api/state">/api/state</a> ·
-    <a href="/setup">/setup</a> ·
-    <a href="/fleet">/fleet</a> ·
-    <a href="/cost/summary">/cost/summary</a> ·
-    <a href="/api/discovery">/api/discovery</a> ·
-    <a href="/health">/health</a>
+    <div id="version-line">v${escapeHtml(version || config.version)}</div>
   </footer>
 </main>
 
