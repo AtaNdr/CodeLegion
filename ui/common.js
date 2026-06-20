@@ -209,28 +209,30 @@ export const STYLES = `
   html[data-theme="dark"]  #themeIconBtn .theme-sun { display: none; }
   #themeIconBtn:hover { transform: rotate(15deg); transition: transform .15s, background .15s, border-color .15s; }
 
-  /* ─────────── Settings drawer ─────────── */
-  .drawer {
-    position: fixed; top: 0; right: 0; bottom: 0;
-    width: min(520px, 100vw);
+  /* ─────────── Large dialog modals (Infrastructure setup, Environment) ─────────── */
+  dialog.modal-lg {
+    width: min(960px, 92vw);
+    max-height: 86vh;
+    padding: 0;
+    border: 1px solid var(--border);
+    border-radius: 10px;
     background: var(--bg);
-    border-left: 1px solid var(--border);
-    box-shadow: -16px 0 48px rgba(0,0,0,.35);
-    z-index: 200;
-    display: flex; flex-direction: column;
-    transform: translateX(100%);
-    transition: transform .28s cubic-bezier(.2,.7,.3,1);
+    color: var(--fg);
+    box-shadow: 0 16px 48px rgba(0,0,0,.35);
+    overflow: hidden;
   }
-  .drawer.open { transform: translateX(0); }
-  .drawer[hidden] { display: flex !important; }  /* keep flex so transform animates from off-screen */
-  .drawer-header {
+  dialog.modal-lg::backdrop { background: rgba(0,0,0,.45); }
+  dialog.modal-lg[open] { display: flex; flex-direction: column; }
+  .modal-header {
     flex-shrink: 0;
-    padding: .9rem 1.1rem; border-bottom: 1px solid var(--border);
+    padding: .9rem 1.1rem;
+    border-bottom: 1px solid var(--border);
     display: flex; align-items: center; justify-content: space-between;
     background: var(--bg);
+    position: sticky; top: 0; z-index: 1;
   }
-  .drawer-header h2 { font-size: 1rem; margin: 0; font-weight: 600; }
-  .drawer-close, .np-close {
+  .modal-header h2 { font-size: 1rem; margin: 0; font-weight: 600; }
+  .modal-close, .np-close {
     width: 30px; height: 30px;
     background: transparent; border: 1px solid var(--border);
     color: var(--fg); border-radius: 6px;
@@ -238,19 +240,9 @@ export const STYLES = `
     display: inline-flex; align-items: center; justify-content: center;
     transition: background .15s;
   }
-  .drawer-close:hover, .np-close:hover { background: var(--pill-bg); }
-  .drawer-body { flex: 1; overflow-y: auto; padding: 1rem 1.1rem 2rem; }
-  .drawer-section + .drawer-section { margin-top: 1.25rem; }
-  .drawer-section > details > summary > h2 { font-size: 1rem; }
-
-  .drawer-backdrop {
-    position: fixed; inset: 0;
-    background: rgba(0,0,0,.45);
-    z-index: 150;
-    opacity: 0;
-    transition: opacity .25s;
-  }
-  .drawer-backdrop.open { opacity: 1; }
+  .modal-close:hover, .np-close:hover { background: var(--pill-bg); }
+  .modal-body { flex: 1; overflow-y: auto; padding: 1rem 1.1rem 1.5rem; }
+  .modal-body > details > summary > h2 { font-size: 1rem; }
 
   /* ─────────── Notifications popover + User popover ─────────── */
   .notifications-panel, .user-popover {

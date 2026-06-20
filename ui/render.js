@@ -79,12 +79,21 @@ export function renderPage({ phase1, discovery, missing, topError, fleet, fleetD
         </svg>
         ${notifBadge}
       </button>
-      <button type="button" class="icon-btn" id="settingsIconBtn" aria-label="Settings" aria-haspopup="true">
+      <button type="button" class="icon-btn" id="settingsIconBtn" aria-label="Infrastructure setup" title="Infrastructure setup" aria-haspopup="dialog">
         <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <circle cx="12" cy="12" r="3"/>
           <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
         </svg>
         ${settingsBadge}
+      </button>
+      <button type="button" class="icon-btn" id="envIconBtn" aria-label="Environment & resources" title="Environment & resources" aria-haspopup="dialog">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="3" y="4" width="18" height="5" rx="1.2"/>
+          <rect x="3" y="11" width="18" height="5" rx="1.2"/>
+          <rect x="3" y="18" width="18" height="3" rx="1.2"/>
+          <circle cx="6.5" cy="6.5" r=".6" fill="currentColor"/>
+          <circle cx="6.5" cy="13.5" r=".6" fill="currentColor"/>
+        </svg>
       </button>
       <button type="button" class="icon-btn icon-btn-avatar" id="userIconBtn" aria-label="Account" aria-haspopup="true">
         <span class="avatar-initials">A</span>
@@ -127,18 +136,27 @@ ${notificationsPanel}
   </div>
 </div>
 
-<!-- ── Settings drawer (Infrastructure setup + Environment & discovery) ── -->
-<aside class="drawer" id="settingsDrawer" hidden aria-labelledby="settingsDrawerTitle">
-  <div class="drawer-header">
-    <h2 id="settingsDrawerTitle">Settings</h2>
-    <button type="button" class="drawer-close" aria-label="Close" onclick="closeOverlay('settingsDrawer')">×</button>
+<!-- ── Infrastructure setup modal ── -->
+<dialog id="setupModal" class="modal-lg" aria-labelledby="setupModalTitle">
+  <div class="modal-header">
+    <h2 id="setupModalTitle">Infrastructure setup</h2>
+    <button type="button" class="modal-close" aria-label="Close" onclick="document.getElementById('setupModal').close()">×</button>
   </div>
-  <div class="drawer-body">
-    <section class="drawer-section">${setupForDrawer || '<p class="muted">Setup wizard not yet available — controller config incomplete.</p>'}</section>
-    <section class="drawer-section">${discoveryForDrawer || '<p class="muted">Environment data unavailable.</p>'}</section>
+  <div class="modal-body">
+    ${setupForDrawer || '<p class="muted">Setup wizard not yet available — controller config incomplete.</p>'}
   </div>
-</aside>
-<div class="drawer-backdrop" id="drawerBackdrop" hidden onclick="closeAllOverlays()"></div>
+</dialog>
+
+<!-- ── Environment & resources modal ── -->
+<dialog id="envModal" class="modal-lg" aria-labelledby="envModalTitle">
+  <div class="modal-header">
+    <h2 id="envModalTitle">Environment &amp; resources</h2>
+    <button type="button" class="modal-close" aria-label="Close" onclick="document.getElementById('envModal').close()">×</button>
+  </div>
+  <div class="modal-body">
+    ${discoveryForDrawer || '<p class="muted">Environment data unavailable.</p>'}
+  </div>
+</dialog>
 
 <!-- ── Existing modals (unchanged) ── -->
 

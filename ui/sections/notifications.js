@@ -21,7 +21,7 @@ export function computeNotifications({ phase1, fleet }) {
       tier: 'action',
       title: 'Infrastructure setup incomplete',
       body: `${s.red} red · ${s.yellow} warn · ${s.unknown} unrun. Open Settings to walk the wizard.`,
-      action: { label: 'Open Settings', target: 'settings-drawer' },
+      action: { label: 'Open setup', target: 'setupModal' },
     });
   }
 

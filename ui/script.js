@@ -712,39 +712,35 @@ function setDismissedNotes(set) {
 }
 
 function openOverlay(id) {
+  // Dialog-based modals: native <dialog> handles backdrop + ESC + focus trap.
+  const dlg = document.getElementById(id);
+  if (dlg && dlg.tagName === 'DIALOG') {
+    closeAllOverlays();
+    if (!dlg.open) dlg.showModal();
+    return;
+  }
   closeAllOverlays();
   const el = document.getElementById(id);
   if (!el) return;
   el.hidden = false;
-  // Force reflow so the transition runs.
   void el.offsetHeight;
   el.classList.add('open');
-  if (id === 'settingsDrawer') {
-    const bd = document.getElementById('drawerBackdrop');
-    if (bd) { bd.hidden = false; void bd.offsetHeight; bd.classList.add('open'); }
-  }
-  // Highlight the source button.
-  const btn = id === 'settingsDrawer' ? document.getElementById('settingsIconBtn')
-    : id === 'notificationsPanel' ? document.getElementById('notifIconBtn')
+  const btn = id === 'notificationsPanel' ? document.getElementById('notifIconBtn')
     : id === 'userPopover' ? document.getElementById('userIconBtn') : null;
   if (btn) btn.setAttribute('aria-expanded', 'true');
 }
 function closeOverlay(id) {
   const el = document.getElementById(id);
   if (!el) return;
+  if (el.tagName === 'DIALOG') { if (el.open) el.close(); return; }
   el.classList.remove('open');
   setTimeout(() => { el.hidden = true; }, 250);
-  if (id === 'settingsDrawer') {
-    const bd = document.getElementById('drawerBackdrop');
-    if (bd) { bd.classList.remove('open'); setTimeout(() => { bd.hidden = true; }, 250); }
-  }
-  const btn = id === 'settingsDrawer' ? document.getElementById('settingsIconBtn')
-    : id === 'notificationsPanel' ? document.getElementById('notifIconBtn')
+  const btn = id === 'notificationsPanel' ? document.getElementById('notifIconBtn')
     : id === 'userPopover' ? document.getElementById('userIconBtn') : null;
   if (btn) btn.setAttribute('aria-expanded', 'false');
 }
 function closeAllOverlays() {
-  ['notificationsPanel', 'settingsDrawer', 'userPopover'].forEach(closeOverlay);
+  ['notificationsPanel', 'userPopover', 'setupModal', 'envModal'].forEach(closeOverlay);
 }
 
 // =====================================================================
@@ -783,10 +779,12 @@ function cycleTheme() {
   const themeBtn = document.getElementById('themeIconBtn');
   const notifBtn = document.getElementById('notifIconBtn');
   const setBtn   = document.getElementById('settingsIconBtn');
+  const envBtn   = document.getElementById('envIconBtn');
   const userBtn  = document.getElementById('userIconBtn');
   if (themeBtn) themeBtn.addEventListener('click', cycleTheme);
   if (notifBtn) notifBtn.addEventListener('click', (e) => { e.stopPropagation(); toggleOverlay('notificationsPanel'); });
-  if (setBtn)   setBtn.addEventListener('click',   (e) => { e.stopPropagation(); toggleOverlay('settingsDrawer'); });
+  if (setBtn)   setBtn.addEventListener('click',   (e) => { e.stopPropagation(); openOverlay('setupModal'); });
+  if (envBtn)   envBtn.addEventListener('click',   (e) => { e.stopPropagation(); openOverlay('envModal'); });
   if (userBtn)  userBtn.addEventListener('click',  (e) => { e.stopPropagation(); toggleOverlay('userPopover'); });
 
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeAllOverlays(); });
