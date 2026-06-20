@@ -63,7 +63,7 @@ export function renderDiscovery({ discovery, missing, topError, setupInline = ''
     </div>`;
 
   return `
-<details>
+<details open>
   <summary><h2 style="display:inline-block; margin:0">Environment & discovery</h2></summary>
 
   ${missing.length > 0 ? `

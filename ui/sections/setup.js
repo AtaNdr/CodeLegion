@@ -8,7 +8,7 @@ export function renderSetup({ results, summary }, { inline = false } = {}) {
   // (post-allDone), don't persist its open/closed state and default to
   // closed — so clicking Environment doesn't auto-expand setup. When at
   // top of page (allDone=false), persist + default-open as before.
-  const collapsed = inline ? '' : (summary.allDone ? '' : 'open');
+  const collapsed = inline ? 'open' : (summary.allDone ? '' : 'open');
   const persistAttr = inline ? '' : 'data-persist';
   const idAttr = inline ? 'id="flow1-details-inline"' : 'id="flow1-details"';
   const skippedNote = summary.skipped ? ` · ${summary.skipped} skipped` : '';
